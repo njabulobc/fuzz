@@ -1,20 +1,14 @@
 from app import models
 from app.services import scanner
-
-
-class DummyResult:
-    def __init__(self, success=True):
-        self.success = success
-        self.output = "ok"
-        self.error = None
+from app.adapters.base import ToolResult
 
 
 def test_execute_scan_collects_findings(monkeypatch, tmp_path):
     project = models.Project(id="p1", name="proj", path=str(tmp_path))
     scan = models.Scan(id="s1", project_id="p1", target="/tmp/file.sol", tools=["slither"])
 
-    def fake_tool(target):
-        return DummyResult(True), [
+    def fake_tool(target, timeout=None):
+        return ToolResult(success=True, output="ok", error=None, exit_code=0, runtime_seconds=0.1), [
             scanner.NormalizedFinding(
                 tool="slither",
                 title="issue",
@@ -43,6 +37,9 @@ def test_execute_scan_collects_findings(monkeypatch, tmp_path):
 
         def add(self, obj):
             self.added.append(obj)
+
+        def flush(self):
+            pass
 
     db = DummyDB()
     scanner.execute_scan(db, scan)
