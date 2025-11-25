@@ -67,26 +67,56 @@ const App: React.FC = () => {
   const [selectedScanDetail, setSelectedScanDetail] = useState<ScanDetail | null>(null)
   const [findings, setFindings] = useState<Finding[]>([])
   const [generationMessage, setGenerationMessage] = useState<string>('')
+  const [statusMessage, setStatusMessage] = useState<string>('')
+  const [errorMessage, setErrorMessage] = useState<string>('')
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [latestGenerated, setLatestGenerated] = useState<GeneratedContract | null>(null)
 
   useEffect(() => {
-    axios.get(`${API_URL}/projects`).then((res) => setProjects(res.data))
-    axios.get(`${API_URL}/scans`).then((res) => setScans(res.data))
+    const fetchData = async () => {
+      setStatusMessage('Loading projects and scans…')
+      setErrorMessage('')
+      try {
+        const [projectsRes, scansRes] = await Promise.all([
+          axios.get(`${API_URL}/projects`),
+          axios.get(`${API_URL}/scans`),
+        ])
+        setProjects(projectsRes.data)
+        setScans(scansRes.data)
+        setStatusMessage(scansRes.data.length === 0 ? 'No scans available yet.' : '')
+      } catch (err) {
+        setErrorMessage('Failed to load projects or scans. Ensure the backend is running and reachable.')
+        setStatusMessage('')
+      }
+    }
+
+    fetchData()
   }, [])
 
   useEffect(() => {
     if (selectedScan) {
-      axios.get(`${API_URL}/scans/${selectedScan}`).then((res) => {
-        setFindings(res.data.findings)
-        setSelectedScanDetail(res.data)
-      })
+      setStatusMessage('Loading scan details…')
+      setErrorMessage('')
+      axios
+        .get(`${API_URL}/scans/${selectedScan}`)
+        .then((res) => {
+          setFindings(res.data.findings)
+          setSelectedScanDetail(res.data)
+          setStatusMessage('')
+        })
+        .catch(() => {
+          setSelectedScanDetail(null)
+          setFindings([])
+          setErrorMessage('Unable to load scan details. Please verify the API is accessible and try again.')
+          setStatusMessage('')
+        })
     }
   }, [selectedScan])
 
   const handleGenerateContract = async () => {
     setIsGenerating(true)
     setGenerationMessage('')
+    setErrorMessage('')
     try {
       const res = await axios.post<ContractGenerationResponse>(`${API_URL}/contracts/generate-and-scan`)
       const data = res.data
@@ -104,6 +134,7 @@ const App: React.FC = () => {
       )
     } catch (err) {
       setGenerationMessage('Failed to generate contract. See backend logs for details.')
+      setErrorMessage('Contract generation failed. Double-check the backend service and try again.')
       setLatestGenerated(null)
     } finally {
       setIsGenerating(false)
@@ -113,6 +144,18 @@ const App: React.FC = () => {
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
       <h1>Smart Contract Scan Dashboard</h1>
+      <div aria-live="polite" style={{ marginBottom: '1rem' }}>
+        {statusMessage && (
+          <p style={{ margin: 0, color: '#1a4' }}>
+            <strong>Status:</strong> {statusMessage}
+          </p>
+        )}
+        {errorMessage && (
+          <p style={{ margin: '0.25rem 0 0', color: '#b00020' }}>
+            <strong>Problem:</strong> {errorMessage}
+          </p>
+        )}
+      </div>
       <section
         style={{
           marginBottom: '1.5rem',
