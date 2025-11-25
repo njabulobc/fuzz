@@ -5,7 +5,7 @@ from typing import List
 from sqlalchemy.orm import Session
 
 from app import models
-from app.adapters import slither, mythril, echidna, manticore
+from app.adapters import echidna, manticore, mythril, slither, state_fuzzer
 from app.normalization.findings import NormalizedFinding
 from app.config import get_settings
 
@@ -16,6 +16,7 @@ TOOL_MAP = {
     "mythril": mythril.run_mythril,
     "echidna": echidna.run_echidna,
     "manticore": manticore.run_manticore,
+    "state-fuzzer": state_fuzzer.run_state_fuzzer,
 }
 
 
