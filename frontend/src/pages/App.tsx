@@ -60,18 +60,41 @@ const App: React.FC = () => {
   const [findings, setFindings] = useState<Finding[]>([])
   const [generationMessage, setGenerationMessage] = useState<string>('')
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
+  const [loadError, setLoadError] = useState<string>('')
+  const [scanError, setScanError] = useState<string>('')
 
   useEffect(() => {
-    axios.get(`${API_URL}/projects`).then((res) => setProjects(res.data))
-    axios.get(`${API_URL}/scans`).then((res) => setScans(res.data))
+    const fetchInitialData = async () => {
+      try {
+        const [projectsRes, scansRes] = await Promise.all([
+          axios.get(`${API_URL}/projects`),
+          axios.get(`${API_URL}/scans`),
+        ])
+        setProjects(projectsRes.data)
+        setScans(scansRes.data)
+        setLoadError('')
+      } catch (err) {
+        setLoadError(
+          `Failed to reach the API at ${API_URL}. Verify the VITE_API_URL setting and that the backend is running.`
+        )
+      }
+    }
+
+    fetchInitialData()
   }, [])
 
   useEffect(() => {
     if (selectedScan) {
-      axios.get(`${API_URL}/scans/${selectedScan}`).then((res) => {
-        setFindings(res.data.findings)
-        setSelectedScanDetail(res.data)
-      })
+      axios
+        .get(`${API_URL}/scans/${selectedScan}`)
+        .then((res) => {
+          setFindings(res.data.findings)
+          setSelectedScanDetail(res.data)
+          setScanError('')
+        })
+        .catch(() => {
+          setScanError(`Failed to load scan ${selectedScan}. Check that the API endpoint is reachable.`)
+        })
     }
   }, [selectedScan])
 
@@ -120,6 +143,11 @@ const App: React.FC = () => {
           </p>
         )}
       </section>
+      {loadError && (
+        <section style={{ marginTop: '1rem', color: '#b00020' }}>
+          <strong>Dashboard error:</strong> {loadError}
+        </section>
+      )}
       <section>
         <h2>Projects</h2>
         <ul>
@@ -164,6 +192,11 @@ const App: React.FC = () => {
           </tbody>
         </table>
       </section>
+      {scanError && (
+        <section style={{ marginTop: '0.75rem', color: '#b00020' }}>
+          <strong>Scan error:</strong> {scanError}
+        </section>
+      )}
 
       {selectedScanDetail && (
         <section>
