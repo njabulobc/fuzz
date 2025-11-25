@@ -31,6 +31,13 @@ class ScanRequest(BaseModel):
     tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna"])
 
 
+class ContractGenerationResponse(BaseModel):
+    contract_name: str
+    contract_path: str
+    project: ProjectRead
+    scan: ScanRead
+
+
 class ToolOutcome(BaseModel):
     tool: str
     success: bool

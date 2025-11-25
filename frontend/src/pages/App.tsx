@@ -24,6 +24,13 @@ type Scan = {
   tool_results?: ToolOutcome[]
 }
 
+type ContractGenerationResponse = {
+  contract_name: string
+  contract_path: string
+  project: Project
+  scan: Scan
+}
+
 type CrashReport = { id: string; signature: string; reproduction_status: string; log?: string }
 
 type ScanDetail = Scan & {
@@ -51,6 +58,8 @@ const App: React.FC = () => {
   const [selectedScan, setSelectedScan] = useState<string>('')
   const [selectedScanDetail, setSelectedScanDetail] = useState<ScanDetail | null>(null)
   const [findings, setFindings] = useState<Finding[]>([])
+  const [generationMessage, setGenerationMessage] = useState<string>('')
+  const [isGenerating, setIsGenerating] = useState<boolean>(false)
 
   useEffect(() => {
     axios.get(`${API_URL}/projects`).then((res) => setProjects(res.data))
@@ -66,9 +75,51 @@ const App: React.FC = () => {
     }
   }, [selectedScan])
 
+  const handleGenerateContract = async () => {
+    setIsGenerating(true)
+    setGenerationMessage('')
+    try {
+      const res = await axios.post<ContractGenerationResponse>(`${API_URL}/contracts/generate-and-scan`)
+      const data = res.data
+      setProjects((prev) => [data.project, ...prev])
+      setScans((prev) => [data.scan, ...prev])
+      setSelectedScan(data.scan.id)
+      setGenerationMessage(
+        `Generated ${data.contract_name} at ${data.contract_path} and queued a fuzz scan automatically.`
+      )
+    } catch (err) {
+      setGenerationMessage('Failed to generate contract. See backend logs for details.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
       <h1>Smart Contract Scan Dashboard</h1>
+      <section
+        style={{
+          marginBottom: '1.5rem',
+          padding: '1rem',
+          border: '1px solid #ddd',
+          borderRadius: 8,
+          background: '#f9fbff',
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Quick actions</h2>
+        <p style={{ marginTop: 0 }}>
+          Instantly generate a sample Solidity contract, register it, and kick off a fuzz scan. The
+          workflow runs end-to-end with a single click.
+        </p>
+        <button onClick={handleGenerateContract} disabled={isGenerating} style={{ padding: '0.5rem 1rem' }}>
+          {isGenerating ? 'Generating & starting fuzz scan…' : 'Generate contract + fuzz it'}
+        </button>
+        {generationMessage && (
+          <p style={{ marginTop: '0.75rem', color: '#1a4' }} aria-live="polite">
+            {generationMessage}
+          </p>
+        )}
+      </section>
       <section>
         <h2>Projects</h2>
         <ul>
