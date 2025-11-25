@@ -97,11 +97,28 @@ const App: React.FC = () => {
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
       <h1>Smart Contract Scan Dashboard</h1>
-      <section style={{ marginBottom: '1rem' }}>
-        <button onClick={handleGenerateContract} disabled={isGenerating}>
-          {isGenerating ? 'Generating & starting fuzz scan...' : 'Generate contract + fuzz it'}
+      <section
+        style={{
+          marginBottom: '1.5rem',
+          padding: '1rem',
+          border: '1px solid #ddd',
+          borderRadius: 8,
+          background: '#f9fbff',
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Quick actions</h2>
+        <p style={{ marginTop: 0 }}>
+          Instantly generate a sample Solidity contract, register it, and kick off a fuzz scan. The
+          workflow runs end-to-end with a single click.
+        </p>
+        <button onClick={handleGenerateContract} disabled={isGenerating} style={{ padding: '0.5rem 1rem' }}>
+          {isGenerating ? 'Generating & starting fuzz scan…' : 'Generate contract + fuzz it'}
         </button>
-        {generationMessage && <p style={{ marginTop: '0.5rem' }}>{generationMessage}</p>}
+        {generationMessage && (
+          <p style={{ marginTop: '0.75rem', color: '#1a4' }} aria-live="polite">
+            {generationMessage}
+          </p>
+        )}
       </section>
       <section>
         <h2>Projects</h2>
