@@ -34,6 +34,7 @@ class ScanRequest(BaseModel):
 class ContractGenerationResponse(BaseModel):
     contract_name: str
     contract_path: str
+    contract_source: str
     project: ProjectRead
     scan: ScanRead
 
