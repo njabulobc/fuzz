@@ -11,6 +11,11 @@ from app import models
 
 
 def _finding_to_sarif_result(finding: models.Finding) -> dict:
+    try:
+        start_line = int(finding.line_number)
+    except (TypeError, ValueError):
+        start_line = 1
+
     return {
         "ruleId": finding.category or finding.title,
         "level": finding.severity.lower(),
@@ -19,7 +24,7 @@ def _finding_to_sarif_result(finding: models.Finding) -> dict:
             {
                 "physicalLocation": {
                     "artifactLocation": {"uri": finding.file_path or "unknown"},
-                    "region": {"startLine": int(finding.line_number or 1)},
+                    "region": {"startLine": start_line},
                 }
             }
         ],

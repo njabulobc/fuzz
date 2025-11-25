@@ -52,7 +52,7 @@ class ScanRead(BaseModel):
     started_at: datetime
     finished_at: Optional[datetime]
     logs: Optional[str]
-    tool_results: List[ToolOutcome] = Field(default_factory=list)
+    tool_results: Optional[List[ToolOutcome]] = Field(default_factory=list)
     telemetry: Optional[dict]
     artifacts: Optional[dict]
 
