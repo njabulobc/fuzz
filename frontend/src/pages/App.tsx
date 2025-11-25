@@ -27,8 +27,16 @@ type Scan = {
 type ContractGenerationResponse = {
   contract_name: string
   contract_path: string
+  contract_source: string
   project: Project
   scan: Scan
+}
+
+type GeneratedContract = {
+  name: string
+  path: string
+  source: string
+  scanId: string
 }
 
 type CrashReport = { id: string; signature: string; reproduction_status: string; log?: string }
@@ -60,6 +68,7 @@ const App: React.FC = () => {
   const [findings, setFindings] = useState<Finding[]>([])
   const [generationMessage, setGenerationMessage] = useState<string>('')
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
+  const [latestGenerated, setLatestGenerated] = useState<GeneratedContract | null>(null)
 
   useEffect(() => {
     axios.get(`${API_URL}/projects`).then((res) => setProjects(res.data))
@@ -84,11 +93,18 @@ const App: React.FC = () => {
       setProjects((prev) => [data.project, ...prev])
       setScans((prev) => [data.scan, ...prev])
       setSelectedScan(data.scan.id)
+      setLatestGenerated({
+        name: data.contract_name,
+        path: data.contract_path,
+        source: data.contract_source,
+        scanId: data.scan.id,
+      })
       setGenerationMessage(
         `Generated ${data.contract_name} at ${data.contract_path} and queued a fuzz scan automatically.`
       )
     } catch (err) {
       setGenerationMessage('Failed to generate contract. See backend logs for details.')
+      setLatestGenerated(null)
     } finally {
       setIsGenerating(false)
     }
@@ -118,6 +134,44 @@ const App: React.FC = () => {
           <p style={{ marginTop: '0.75rem', color: '#1a4' }} aria-live="polite">
             {generationMessage}
           </p>
+        )}
+
+        {latestGenerated && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              border: '1px dashed #a0a0a0',
+              borderRadius: 6,
+              background: '#fff',
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>Latest generated fuzz target</h3>
+            <p style={{ margin: '0 0 0.5rem 0' }}>
+              <strong>{latestGenerated.name}</strong> ({latestGenerated.path})
+            </p>
+            <p style={{ margin: '0 0 0.5rem 0' }}>
+              The scan for this contract has already been queued. It will appear in the scans table
+              below as soon as results are available.
+            </p>
+            <p style={{ margin: '0 0 0.5rem 0' }}>
+              Linked scan ID: <code>{latestGenerated.scanId}</code>
+            </p>
+            <details>
+              <summary style={{ cursor: 'pointer' }}>View generated Solidity</summary>
+              <pre
+                style={{
+                  background: '#f7f7f7',
+                  padding: '0.75rem',
+                  borderRadius: 4,
+                  overflowX: 'auto',
+                  marginTop: '0.5rem',
+                }}
+              >
+                {latestGenerated.source}
+              </pre>
+            </details>
+          </div>
         )}
       </section>
       <section>

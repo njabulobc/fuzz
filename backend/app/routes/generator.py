@@ -23,9 +23,13 @@ def get_db():
 
 @router.post("/generate-and-scan", response_model=schemas.ContractGenerationResponse)
 def generate_and_scan(db: Session = Depends(get_db)):
-    contract_name, contract_path, _ = generate_contract()
+    contract_name, contract_path, contract_source = generate_contract()
 
-    project = models.Project(name=f"Generated {contract_name}", path=contract_path, meta={"generated": True})
+    project = models.Project(
+        name=f"Generated {contract_name}",
+        path=contract_path,
+        meta={"generated": True, "contract_source": contract_source},
+    )
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -45,6 +49,7 @@ def generate_and_scan(db: Session = Depends(get_db)):
     return schemas.ContractGenerationResponse(
         contract_name=contract_name,
         contract_path=contract_path,
+        contract_source=contract_source,
         project=project,
         scan=scan,
     )
