@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { FindingsTable } from '../components/FindingsTable'
 
-const API_URL = 'http://localhost:8000/api'
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000/api'
 
 type Project = { id: string; name: string; path: string }
 type Scan = { id: string; project_id: string; status: string; target: string; tools: string[]; started_at: string }
@@ -62,7 +62,11 @@ const App: React.FC = () => {
           </thead>
           <tbody>
             {scans.map((s) => (
-              <tr key={s.id} onClick={() => setSelectedScan(s.id)} style={{ cursor: 'pointer', background: selectedScan === s.id ? '#eef' : 'white' }}>
+                <tr
+                key={s.id}
+                onClick={() => setSelectedScan(s.id)}
+                style={{ cursor: 'pointer', background: selectedScan === s.id ? '#eef' : 'white' }}
+              >
                 <td>{s.id}</td>
                 <td>{s.status}</td>
                 <td>{s.project_id}</td>
