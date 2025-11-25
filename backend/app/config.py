@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     worker_resource_limits: dict = Field(
         default_factory=lambda: {"cpu": "1", "memory": "1g"}
     )
+    generated_contract_dir: str = Field(
+        default=os.environ.get("GENERATED_CONTRACT_DIR", "/tmp/generated_contracts")
+    )
 
     class Config:
         env_file = ".env"
