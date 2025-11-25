@@ -11,7 +11,13 @@ settings = get_settings()
 
 def run_manticore(target: str, timeout: int | None = None) -> tuple[ToolResult, List[NormalizedFinding]]:
     cmd = [settings.manticore_path, target]
-    result = run_command(cmd, timeout=timeout or settings.default_timeout_seconds)
+    result = run_command(
+        cmd,
+        timeout=timeout or settings.default_timeout_seconds,
+        max_retries=settings.default_max_retries,
+        worker_image=settings.worker_container_image,
+        resource_limits=settings.worker_resource_limits,
+    )
     findings: List[NormalizedFinding] = []
     # Manticore default output not easily machine-readable; capture generic entry on failure
     if not result.success:

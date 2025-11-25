@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     echidna_path: str = Field(default=os.environ.get("ECHIDNA_PATH", "echidna-test"))
     manticore_path: str = Field(default=os.environ.get("MANTICORE_PATH", "manticore"))
     default_timeout_seconds: int = 600
+    default_max_retries: int = 2
+    worker_container_image: str | None = Field(default=os.environ.get("WORKER_IMAGE"))
+    worker_resource_limits: dict = Field(
+        default_factory=lambda: {"cpu": "1", "memory": "1g"}
+    )
 
     class Config:
         env_file = ".env"

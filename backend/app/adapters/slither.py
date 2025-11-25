@@ -13,7 +13,13 @@ settings = get_settings()
 
 def run_slither(target: str, timeout: int | None = None) -> tuple[ToolResult, List[NormalizedFinding]]:
     cmd = [settings.slither_path, target, "--json", "-"]
-    result = run_command(cmd, timeout=timeout or settings.default_timeout_seconds)
+    result = run_command(
+        cmd,
+        timeout=timeout or settings.default_timeout_seconds,
+        max_retries=settings.default_max_retries,
+        worker_image=settings.worker_container_image,
+        resource_limits=settings.worker_resource_limits,
+    )
     findings: List[NormalizedFinding] = []
     if result.success and result.output:
         try:

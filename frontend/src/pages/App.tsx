@@ -5,23 +5,51 @@ import { FindingsTable } from '../components/FindingsTable'
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000/api'
 
 type Project = { id: string; name: string; path: string }
-type Scan = { id: string; project_id: string; status: string; target: string; tools: string[]; started_at: string }
+type ToolOutcome = {
+  tool: string
+  success: boolean
+  attempts: number
+  duration_seconds?: number
+  error?: string
+  output?: string
+  artifacts?: string[]
+}
+type Scan = {
+  id: string
+  project_id: string
+  status: string
+  target: string
+  tools: string[]
+  started_at: string
+  tool_results?: ToolOutcome[]
+}
+
+type CrashReport = { id: string; signature: string; reproduction_status: string; log?: string }
+
+type ScanDetail = Scan & {
+  findings: Finding[]
+  tool_results: ToolOutcome[]
+  crash_reports: CrashReport[]
+  telemetry?: Record<string, unknown>
+  artifacts?: Record<string, string>
+}
 
 type Finding = {
-  id: string;
-  tool: string;
-  title: string;
-  description: string;
-  severity: string;
-  category?: string;
-  file_path?: string;
-  line_number?: string;
+  id: string
+  tool: string
+  title: string
+  description: string
+  severity: string
+  category?: string
+  file_path?: string
+  line_number?: string
 }
 
 const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([])
   const [scans, setScans] = useState<Scan[]>([])
   const [selectedScan, setSelectedScan] = useState<string>('')
+  const [selectedScanDetail, setSelectedScanDetail] = useState<ScanDetail | null>(null)
   const [findings, setFindings] = useState<Finding[]>([])
 
   useEffect(() => {
@@ -31,7 +59,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (selectedScan) {
-      axios.get(`${API_URL}/scans/${selectedScan}`).then((res) => setFindings(res.data.findings))
+      axios.get(`${API_URL}/scans/${selectedScan}`).then((res) => {
+        setFindings(res.data.findings)
+        setSelectedScanDetail(res.data)
+      })
     }
   }, [selectedScan])
 
@@ -64,7 +95,11 @@ const App: React.FC = () => {
             {scans.map((s) => (
                 <tr
                 key={s.id}
-                onClick={() => setSelectedScan(s.id)}
+                onClick={() => {
+                  setSelectedScan(s.id)
+                  setSelectedScanDetail(null)
+                  setFindings([])
+                }}
                 style={{ cursor: 'pointer', background: selectedScan === s.id ? '#eef' : 'white' }}
               >
                 <td>{s.id}</td>
@@ -78,6 +113,72 @@ const App: React.FC = () => {
           </tbody>
         </table>
       </section>
+
+      {selectedScanDetail && (
+        <section>
+          <h2>Tool outcomes</h2>
+          <table border={1} cellPadding={6} cellSpacing={0} width="100%">
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>Status</th>
+                <th>Attempts</th>
+                <th>Duration (s)</th>
+                <th>Errors</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedScanDetail.tool_results?.map((r) => (
+                <tr key={`${selectedScanDetail.id}-${r.tool}`}>
+                  <td>{r.tool}</td>
+                  <td style={{ color: r.success ? 'green' : 'red' }}>{r.success ? 'SUCCESS' : 'FAILED'}</td>
+                  <td>{r.attempts}</td>
+                  <td>{r.duration_seconds?.toFixed(2) ?? 'n/a'}</td>
+                  <td style={{ maxWidth: 320 }}>{r.error ?? ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {selectedScanDetail && selectedScanDetail.crash_reports.length > 0 && (
+        <section>
+          <h2>Crash triage</h2>
+          <ul>
+            {selectedScanDetail.crash_reports.map((crash) => (
+              <li key={crash.id}>
+                <strong>{crash.signature}</strong> — {crash.reproduction_status}
+                {crash.log ? <pre style={{ whiteSpace: 'pre-wrap' }}>{crash.log}</pre> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {selectedScanDetail && (
+        <section>
+          <h2>Telemetry & artifacts</h2>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1 }}>
+              <h3>Telemetry snapshot</h3>
+              <pre style={{ background: '#f7f7f7', padding: '0.5rem', maxHeight: 200, overflow: 'auto' }}>
+                {JSON.stringify(selectedScanDetail.telemetry ?? {}, null, 2)}
+              </pre>
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3>Artifacts</h3>
+              <pre style={{ background: '#f7f7f7', padding: '0.5rem', maxHeight: 200, overflow: 'auto' }}>
+                {JSON.stringify(selectedScanDetail.artifacts ?? {}, null, 2)}
+              </pre>
+            </div>
+          </div>
+          <p>
+            Reports: <a href={`${API_URL}/reports/${selectedScanDetail.id}/sarif`} target="_blank">SARIF</a> |{' '}
+            <a href={`${API_URL}/reports/${selectedScanDetail.id}/json`} target="_blank">JSON</a>
+          </p>
+        </section>
+      )}
 
       {selectedScan && (
         <section>
