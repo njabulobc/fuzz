@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.config import get_settings
 from app.db.session import Base
-from app.routes import projects, scans, findings, campaigns, reports
+from app.routes import projects, scans, findings, campaigns, reports, generator
 
 settings = get_settings()
 
@@ -20,6 +20,7 @@ app.include_router(scans.router, prefix="/api")
 app.include_router(findings.router, prefix="/api")
 app.include_router(campaigns.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(generator.router, prefix="/api")
 
 
 @app.get("/health")
