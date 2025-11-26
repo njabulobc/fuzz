@@ -59,7 +59,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.frontend
     environment:
-      VITE_API_URL: http://api:8000/api
+      VITE_API_URL: http://localhost:8000/api
     depends_on:
       api:
         condition: service_started

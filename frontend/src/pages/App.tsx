@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { FindingsTable } from '../components/FindingsTable'
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000/api'
+const defaultApiUrl = (() => {
+  if (typeof window === 'undefined') return 'http://localhost:8000/api'
+  return `http://${window.location.hostname}:8000/api`
+})()
+
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? defaultApiUrl
 
 const SAMPLE_CONTRACT = `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
@@ -109,16 +114,26 @@ const App: React.FC = () => {
     try {
       const res = await axios.get<Project[]>(`${API_URL}/projects`)
       setProjects(res.data)
-      const hasSelectedProject = res.data.some((p) => p.id === scanForm.project_id)
-      if ((!scanForm.project_id || !hasSelectedProject) && res.data.length > 0) {
-        setScanForm((prev) => ({ ...prev, project_id: res.data[0].id }))
-      }
+      
+      setScanForm((prev) => {
+        const hasSelectedProject = res.data.some((p) => p.id === prev.project_id)
+
+        if (res.data.length === 0) {
+          return prev.project_id ? { ...prev, project_id: '' } : prev
+        }
+
+        if (!prev.project_id || !hasSelectedProject) {
+          return { ...prev, project_id: res.data[0].id }
+        }
+
+        return prev
+      })
     } catch (error) {
       showToast({ tone: 'error', message: 'Failed to load projects' })
     } finally {
       setLoadingProjects(false)
     }
-  }, [scanForm.project_id])
+  }, [])
 
   const loadScans = useCallback(async () => {
     setLoadingScans(true)
