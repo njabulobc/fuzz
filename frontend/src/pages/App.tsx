@@ -257,6 +257,25 @@ const App: React.FC = () => {
         </div>
       )}
 
+      <section style={{ ...sectionStyle, borderStyle: 'dashed' }}>
+        <h2 style={{ marginTop: 0 }}>End-to-end in the interface</h2>
+        <p style={{ color: '#475569', marginTop: 6 }}>
+          You can complete the full workflow here without cURL or a CLI. Register a project, drop your Solidity code in the
+          configured path, launch a scan, and review findings and worker logs as they stream in.
+        </p>
+        <div style={{ display: 'grid', gap: '0.55rem', marginTop: '0.75rem' }}>
+          {[{ title: '1) Register a project', copy: 'Use the Projects panel to add the name, filesystem path, and optional metadata.' }, { title: '2) Add contract files', copy: 'Place your Solidity files in the project path. Use the SampleToken helper to copy or download a starter contract.' }, { title: '3) Start a scan', copy: 'Pick the project, select tools, and set a file or directory target, then start the run.' }, { title: '4) Monitor results', copy: 'Check Scan history for status updates and click a row to view findings and worker feedback.' }].map((step) => (
+            <div key={step.title} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ width: 10, height: 10, borderRadius: 999, background: '#0ea5e9' }} />
+              <div>
+                <div style={{ fontWeight: 700 }}>{step.title}</div>
+                <div style={{ color: '#475569' }}>{step.copy}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '1rem', alignItems: 'start' }}>
         <section style={sectionStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
