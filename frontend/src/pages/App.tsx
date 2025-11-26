@@ -206,292 +206,290 @@ const App: React.FC = () => {
 
   const selectedFindings = useMemo(() => scanDetail?.findings ?? [], [scanDetail])
 
-  const badgeColor = (status: string) => {
+  const badgeClass = (status: string) => {
     switch (status) {
       case 'SUCCESS':
-        return '#d1fae5'
+        return 'bg-emerald-50 text-emerald-700 border-emerald-100'
       case 'RUNNING':
-        return '#e0f2fe'
+        return 'bg-sky-50 text-sky-700 border-sky-100'
       case 'FAILED':
-        return '#fee2e2'
+        return 'bg-rose-50 text-rose-700 border-rose-100'
       default:
-        return '#f3f4f6'
+        return 'bg-slate-100 text-slate-700 border-slate-200'
     }
   }
 
-  const sectionStyle: React.CSSProperties = {
-    background: '#fff',
-    padding: '1.25rem',
-    borderRadius: '12px',
-    boxShadow: '0 8px 20px rgba(0,0,0,0.04)',
-    marginBottom: '1rem',
-    border: '1px solid #e5e7eb',
-  }
+  const cardClass = 'bg-white border border-slate-200 shadow-card rounded-xl p-6'
+  const inputClass =
+    'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100'
+  const labelClass = 'text-sm font-semibold text-slate-700'
+  const buttonPrimary =
+    'inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-200'
+  const buttonSecondary =
+    'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-100'
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Inter, system-ui, sans-serif', background: '#f8fafc', minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <div>
-          <p style={{ color: '#64748b', marginBottom: '0.2rem', letterSpacing: '0.08em', fontSize: 12 }}>SMART CONTRACT FUZZER</p>
-          <h1 style={{ margin: 0, fontSize: '1.9rem' }}>Security Workflow Dashboard</h1>
-          <p style={{ color: '#475569', marginTop: 6 }}>Track scan runs, findings, and seed a sample Solidity contract.</p>
-        </div>
-        <button onClick={() => { loadProjects(); loadScans(); if (selectedScanId) loadScanDetail(selectedScanId) }} style={{ padding: '0.6rem 1rem', borderRadius: 10, border: '1px solid #cbd5e1', background: '#0ea5e9', color: '#fff', cursor: 'pointer' }}>
-          Refresh data
-        </button>
-      </header>
-
-      {toast && (
-        <div
-          style={{
-            marginBottom: '1rem',
-            padding: '0.75rem 1rem',
-            borderRadius: 12,
-            border: '1px solid',
-            borderColor: toast.tone === 'error' ? '#fecdd3' : toast.tone === 'success' ? '#bbf7d0' : '#bfdbfe',
-            background: toast.tone === 'error' ? '#fff1f2' : toast.tone === 'success' ? '#f0fdf4' : '#eff6ff',
-            color: '#0f172a',
-          }}
-        >
-          {toast.message}
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '1rem', alignItems: 'start' }}>
-        <section style={sectionStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>Projects</h2>
-            {loadingProjects && <span style={{ color: '#94a3b8', fontSize: 12 }}>Loading…</span>}
-          </div>
-          {projects.length === 0 ? (
-            <p style={{ color: '#475569' }}>No projects yet. Add one below to start scanning.</p>
-          ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.6rem' }}>
-              {projects.map((p) => (
-                <li key={p.id} style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontWeight: 600 }}>{p.name}</div>
-                  <div style={{ color: '#475569', fontSize: 14 }}>{p.path}</div>
-                  {p.meta && <div style={{ color: '#94a3b8', fontSize: 12 }}>Meta: {JSON.stringify(p.meta)}</div>}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <form onSubmit={handleCreateProject} style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontWeight: 600 }}>Project name</label>
-              <input
-                required
-                value={projectForm.name}
-                onChange={(e) => setProjectForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="ex: sample-audits"
-                style={{ padding: '0.55rem 0.75rem', borderRadius: 8, border: '1px solid #cbd5e1' }}
-              />
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontWeight: 600 }}>Path to contracts (used as scan target root)</label>
-              <input
-                required
-                value={projectForm.path}
-                onChange={(e) => setProjectForm((prev) => ({ ...prev, path: e.target.value }))}
-                placeholder="/workspace/contracts"
-                style={{ padding: '0.55rem 0.75rem', borderRadius: 8, border: '1px solid #cbd5e1' }}
-              />
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontWeight: 600 }}>Meta (JSON optional)</label>
-              <textarea
-                value={projectForm.meta}
-                onChange={(e) => setProjectForm((prev) => ({ ...prev, meta: e.target.value }))}
-                placeholder='{"network": "sepolia"}'
-                rows={2}
-                style={{ padding: '0.55rem 0.75rem', borderRadius: 8, border: '1px solid #cbd5e1', resize: 'vertical' }}
-              />
-            </div>
-            <button type="submit" style={{ padding: '0.7rem 1rem', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}>
-              Add project
-            </button>
-          </form>
-        </section>
-
-        <section style={sectionStyle}>
-          <h2 style={{ marginTop: 0 }}>Start a scan</h2>
-          <p style={{ color: '#475569', marginTop: 4 }}>Pick a project, choose tools, and provide a target path. Status updates every few seconds once started.</p>
-          <form onSubmit={handleStartScan} style={{ display: 'grid', gap: '0.75rem' }}>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontWeight: 600 }}>Project</label>
-              <select
-                required
-                value={scanForm.project_id}
-                onChange={(e) => setScanForm((prev) => ({ ...prev, project_id: e.target.value }))}
-                style={{ padding: '0.6rem 0.75rem', borderRadius: 10, border: '1px solid #cbd5e1' }}
-              >
-                <option value="" disabled>
-                  Select a project
-                </option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontWeight: 600 }}>Target (file or directory)</label>
-              <input
-                required
-                value={scanForm.target}
-                onChange={(e) => setScanForm((prev) => ({ ...prev, target: e.target.value }))}
-                placeholder="contracts/SampleToken.sol"
-                style={{ padding: '0.6rem 0.75rem', borderRadius: 10, border: '1px solid #cbd5e1' }}
-              />
-            </div>
-            <div style={{ display: 'grid', gap: 8 }}>
-              <label style={{ fontWeight: 600 }}>Tools</label>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                {TOOLBOX.map((tool) => {
-                  const checked = scanForm.tools.includes(tool)
-                  return (
-                    <label key={tool} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          const updated = e.target.checked
-                            ? [...scanForm.tools, tool]
-                            : scanForm.tools.filter((t) => t !== tool)
-                          setScanForm((prev) => ({ ...prev, tools: updated }))
-                        }}
-                      />
-                      {tool}
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-            <button type="submit" style={{ padding: '0.7rem 1rem', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }} disabled={!scanForm.project_id}>
-              Start scan
-            </button>
-          </form>
-
-          <div style={{ marginTop: '1.5rem', padding: '0.8rem', background: '#ecfeff', border: '1px solid #bae6fd', borderRadius: 10 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Sample Solidity contract</div>
-            <p style={{ color: '#0f172a', marginBottom: 10 }}>
-              Use this starter file to validate the workflow. Download or copy it, place it under your project path (e.g. <code>contracts/SampleToken.sol</code>), then run a scan against that path.
-            </p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={handleCopySample} style={{ padding: '0.55rem 0.8rem', borderRadius: 10, border: '1px solid #38bdf8', background: '#fff', cursor: 'pointer' }}>
-                Copy contract
-              </button>
-              <button onClick={handleDownloadSample} style={{ padding: '0.55rem 0.8rem', borderRadius: 10, border: '1px solid #38bdf8', background: '#0ea5e9', color: '#fff', cursor: 'pointer' }}>
-                Download SampleToken.sol
-              </button>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section style={{ ...sectionStyle, marginTop: '1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={{ margin: 0 }}>Scan history</h2>
-            <p style={{ color: '#475569', marginTop: 4 }}>Select a run to view live findings and logs.</p>
-          </div>
-          {loadingScans && <span style={{ color: '#94a3b8', fontSize: 12 }}>Updating…</span>}
-        </div>
-        <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: '#475569' }}>
-                <th style={{ padding: '0.5rem' }}>Status</th>
-                <th style={{ padding: '0.5rem' }}>Project</th>
-                <th style={{ padding: '0.5rem' }}>Target</th>
-                <th style={{ padding: '0.5rem' }}>Tools</th>
-                <th style={{ padding: '0.5rem' }}>Started</th>
-                <th style={{ padding: '0.5rem' }}>Finished</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scans.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ padding: '0.8rem', color: '#475569' }}>
-                    No scans yet. Kick off a scan to see live feedback.
-                  </td>
-                </tr>
-              )}
-              {scans.map((scan) => (
-                <tr
-                  key={scan.id}
-                  onClick={() => setSelectedScanId(scan.id)}
-                  style={{
-                    background: selectedScanId === scan.id ? '#eef2ff' : '#fff',
-                    cursor: 'pointer',
-                    borderBottom: '1px solid #e2e8f0',
-                  }}
-                >
-                  <td style={{ padding: '0.65rem' }}>
-                    <span
-                      style={{
-                        background: badgeColor(scan.status),
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: 999,
-                        fontWeight: 700,
-                        fontSize: 12,
-                        border: '1px solid #e5e7eb',
-                      }}
-                    >
-                      {scan.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.65rem' }}>{scan.project_id}</td>
-                  <td style={{ padding: '0.65rem' }}>{scan.target}</td>
-                  <td style={{ padding: '0.65rem' }}>{scan.tools.join(', ')}</td>
-                  <td style={{ padding: '0.65rem' }}>{new Date(scan.started_at).toLocaleString()}</td>
-                  <td style={{ padding: '0.65rem' }}>{scan.finished_at ? new Date(scan.finished_at).toLocaleString() : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {selectedScanId && (
-        <section style={sectionStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        <header className="mb-6 flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-sky-600 via-sky-500 to-indigo-500 p-6 text-white shadow-card">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 style={{ margin: 0 }}>Findings for scan {selectedScanId}</h2>
-              <p style={{ color: '#475569', marginTop: 4 }}>
-                Severity and tool filters are available below. {loadingFindings && 'Refreshing findings…'}
-              </p>
+              <p className="text-xs uppercase tracking-[0.18em] text-sky-100">Smart contract fuzzer</p>
+              <h1 className="text-3xl font-semibold">Security workflow dashboard</h1>
+              <p className="mt-2 text-sky-100">Track scan runs, findings, and seed a sample Solidity contract.</p>
             </div>
             <button
-              onClick={() => loadScanDetail(selectedScanId)}
-              style={{ padding: '0.55rem 0.8rem', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}
+              className="rounded-full border border-white/30 bg-white/20 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/30"
+              onClick={() => {
+                loadProjects()
+                loadScans()
+                if (selectedScanId) loadScanDetail(selectedScanId)
+              }}
             >
-              Reload findings
+              Refresh data
             </button>
           </div>
-          <FindingsTable findings={selectedFindings} />
-
-          {scanDetail?.logs && (
-            <div style={{ marginTop: '1rem' }}>
-              <h3 style={{ marginBottom: 6 }}>Worker feedback</h3>
-              <pre
-                style={{
-                  background: '#0f172a',
-                  color: '#e2e8f0',
-                  padding: '0.9rem',
-                  borderRadius: 10,
-                  overflowX: 'auto',
-                  maxHeight: 260,
-                }}
-              >
-                {scanDetail.logs}
-              </pre>
+          {toast && (
+            <div
+              className={`w-full rounded-xl border px-4 py-3 text-sm shadow-sm ${
+                toast.tone === 'error'
+                  ? 'border-rose-200 bg-rose-50 text-rose-800'
+                  : toast.tone === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-sky-200 bg-sky-50 text-sky-800'
+              }`}
+            >
+              {toast.message}
             </div>
           )}
+        </header>
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className={cardClass}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Projects</h2>
+              {loadingProjects && <span className="text-xs text-slate-500">Loading…</span>}
+            </div>
+
+            {projects.length === 0 ? (
+              <p className="text-sm text-slate-600">No projects yet. Add one below to start scanning.</p>
+            ) : (
+              <ul className="grid gap-3">
+                {projects.map((p) => (
+                  <li key={p.id} className="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3">
+                    <div className="font-semibold text-slate-900">{p.name}</div>
+                    <div className="text-sm text-slate-600">{p.path}</div>
+                    {p.meta && <div className="text-xs text-slate-500">Meta: {JSON.stringify(p.meta)}</div>}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <form onSubmit={handleCreateProject} className="mt-6 grid gap-4">
+              <div className="grid gap-2">
+                <label className={labelClass}>Project name</label>
+                <input
+                  required
+                  value={projectForm.name}
+                  onChange={(e) => setProjectForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="ex: sample-audits"
+                  className={inputClass}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className={labelClass}>Path to contracts (used as scan target root)</label>
+                <input
+                  required
+                  value={projectForm.path}
+                  onChange={(e) => setProjectForm((prev) => ({ ...prev, path: e.target.value }))}
+                  placeholder="/workspace/contracts"
+                  className={inputClass}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className={labelClass}>Meta (JSON optional)</label>
+                <textarea
+                  value={projectForm.meta}
+                  onChange={(e) => setProjectForm((prev) => ({ ...prev, meta: e.target.value }))}
+                  placeholder='{"network": "sepolia"}'
+                  rows={2}
+                  className={`${inputClass} resize-y`}
+                />
+              </div>
+              <div className="flex justify-end">
+                <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                  Add project
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className={cardClass}>
+            <h2 className="text-lg font-semibold text-slate-900">Start a scan</h2>
+            <p className="mt-1 text-sm text-slate-600">Pick a project, choose tools, and provide a target path. Status updates every few seconds once started.</p>
+
+            <form onSubmit={handleStartScan} className="mt-4 grid gap-4">
+              <div className="grid gap-2">
+                <label className={labelClass}>Project</label>
+                <select
+                  required
+                  value={scanForm.project_id}
+                  onChange={(e) => setScanForm((prev) => ({ ...prev, project_id: e.target.value }))}
+                  className={inputClass}
+                >
+                  <option value="" disabled>
+                    Select a project
+                  </option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <label className={labelClass}>Tools</label>
+                <div className="flex flex-wrap gap-2">
+                  {TOOLBOX.map((tool) => {
+                    const isSelected = scanForm.tools.includes(tool)
+                    return (
+                      <button
+                        type="button"
+                        key={tool}
+                        onClick={() =>
+                          setScanForm((prev) => ({
+                            ...prev,
+                            tools: isSelected ? prev.tools.filter((t) => t !== tool) : [...prev.tools, tool],
+                          }))
+                        }
+                        className={`${
+                          isSelected
+                            ? 'border-sky-400 bg-sky-50 text-sky-700'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                        } rounded-full border px-3 py-1 text-xs font-semibold transition`}
+                      >
+                        {tool}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <label className={labelClass}>Target path</label>
+                <input
+                  required
+                  value={scanForm.target}
+                  onChange={(e) => setScanForm((prev) => ({ ...prev, target: e.target.value }))}
+                  placeholder="contracts/SampleToken.sol"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button type="submit" className={buttonPrimary}>
+                  Start scan
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">New to the workflow?</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Use this starter file to validate the workflow. Download or copy it, place it under your project path (e.g. <code className="rounded bg-slate-200 px-1 py-0.5 text-xs">contracts/SampleToken.sol</code>), then run a scan against that path.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <button onClick={handleCopySample} className={buttonSecondary} type="button">
+                  Copy contract
+                </button>
+                <button onClick={handleDownloadSample} className={buttonPrimary} type="button">
+                  Download SampleToken.sol
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section className={`${cardClass} mt-5`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Scan history</h2>
+              <p className="text-sm text-slate-600">Select a run to view live findings and logs.</p>
+            </div>
+            {loadingScans && <span className="text-xs text-slate-500">Updating…</span>}
+          </div>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Project</th>
+                  <th className="px-3 py-2">Target</th>
+                  <th className="px-3 py-2">Tools</th>
+                  <th className="px-3 py-2">Started</th>
+                  <th className="px-3 py-2">Finished</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {scans.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-4 text-center text-slate-500">
+                      No scans yet. Kick off a scan to see live feedback.
+                    </td>
+                  </tr>
+                )}
+                {scans.map((scan) => (
+                  <tr
+                    key={scan.id}
+                    onClick={() => setSelectedScanId(scan.id)}
+                    className={`${
+                      selectedScanId === scan.id ? 'bg-indigo-50/60' : 'bg-white'
+                    } cursor-pointer transition hover:bg-slate-50`}
+                  >
+                    <td className="px-3 py-3">
+                      <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase ${badgeClass(scan.status)}`}>
+                        {scan.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-slate-800">{scan.project_id}</td>
+                    <td className="px-3 py-3 text-slate-700">{scan.target}</td>
+                    <td className="px-3 py-3 text-slate-700">{scan.tools.join(', ')}</td>
+                    <td className="px-3 py-3 text-slate-600">{new Date(scan.started_at).toLocaleString()}</td>
+                    <td className="px-3 py-3 text-slate-600">{scan.finished_at ? new Date(scan.finished_at).toLocaleString() : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
-      )}
+
+        {selectedScanId && (
+          <section className={`${cardClass} mt-5`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Findings for scan {selectedScanId}</h2>
+                <p className="text-sm text-slate-600">
+                  Severity and tool filters are available below. {loadingFindings && 'Refreshing findings…'}
+                </p>
+              </div>
+              <button onClick={() => loadScanDetail(selectedScanId)} className={buttonSecondary} type="button">
+                Reload findings
+              </button>
+            </div>
+
+            <FindingsTable findings={selectedFindings} />
+
+            {scanDetail?.logs && (
+              <div className="mt-4">
+                <h3 className="mb-2 text-base font-semibold text-slate-900">Worker feedback</h3>
+                <pre className="max-h-64 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-100">{scanDetail.logs}</pre>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   )
 }
