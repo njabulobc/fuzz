@@ -4,94 +4,126 @@
 
 {% block content %}
   {% set badge_classes = {
-    'SUCCESS': 'bg-emerald-50 text-emerald-700 border-emerald-100',
-    'RUNNING': 'bg-sky-50 text-sky-700 border-sky-100',
-    'FAILED': 'bg-rose-50 text-rose-700 border-rose-100',
-    'PENDING': 'bg-slate-100 text-slate-700 border-slate-200'
+    'SUCCESS': 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/40',
+    'RUNNING': 'bg-sky-400/20 text-sky-100 border border-sky-300/40',
+    'FAILED': 'bg-rose-500/20 text-rose-100 border border-rose-400/40',
+    'PENDING': 'bg-slate-400/20 text-slate-100 border border-slate-300/40'
   } %}
 
-  <header class="mb-6 flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-sky-600 via-sky-500 to-indigo-500 p-6 text-white shadow-card">
-    <div class="flex items-center justify-between gap-4">
-      <div>
-        <p class="text-xs uppercase tracking-[0.18em] text-sky-100">Smart contract fuzzer</p>
-        <h1 class="text-3xl font-semibold">Security workflow dashboard</h1>
-        <p class="mt-2 text-sky-100">Track scan runs, findings, and seed a sample Solidity contract.</p>
+  <section class="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-6 shadow-card">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="space-y-2">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-300">Security workflow dashboard</p>
+        <h1 class="text-3xl font-semibold text-white">Smart Contract Scanner</h1>
+        <p class="max-w-2xl text-sm text-slate-200">
+          Add projects, kick off scans, and watch findings stream in. The view below refreshes from the same API your workers use, so you can validate the full pipeline quickly.
+        </p>
       </div>
-      <a
-        href="{{ url_for('dashboard') }}{{ '?selected_scan_id=' + selected_scan_id if selected_scan_id else '' }}"
-        class="rounded-full border border-white/30 bg-white/20 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/30"
-      >
-        Refresh data
-      </a>
+      <div class="flex items-center gap-3">
+        <a
+          href="{{ url_for('dashboard') }}{{ '?selected_scan_id=' + selected_scan_id if selected_scan_id else '' }}"
+          class="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:border-white/25 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/30"
+        >
+          Refresh data
+        </a>
+      </div>
     </div>
     {% if alert_message %}
       <div
-        class="w-full rounded-xl border px-4 py-3 text-sm shadow-sm {{
-          'border-rose-200 bg-rose-50 text-rose-800' if alert_tone == 'error' else
-          'border-emerald-200 bg-emerald-50 text-emerald-800' if alert_tone == 'success' else
-          'border-sky-200 bg-sky-50 text-sky-800'
+        class="mt-4 w-full rounded-xl border px-4 py-3 text-sm shadow-sm {{
+          'border-rose-300/60 bg-rose-500/20 text-rose-50' if alert_tone == 'error' else
+          'border-emerald-300/60 bg-emerald-500/20 text-emerald-50' if alert_tone == 'success' else
+          'border-sky-300/60 bg-sky-500/20 text-sky-50'
         }}"
       >
         {{ alert_message }}
       </div>
     {% endif %}
-  </header>
+  </section>
 
-  <div class="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-    <section class="bg-white border border-slate-200 shadow-card rounded-xl p-6">
+  <section class="grid gap-4 md:grid-cols-3">
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-card">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-300">Projects</p>
+      <div class="mt-2 flex items-end gap-2">
+        <span class="text-3xl font-bold text-white">{{ projects|length }}</span>
+        <span class="text-sm text-slate-400">tracked</span>
+      </div>
+      <p class="mt-1 text-xs text-slate-400">Each project represents a codebase path.</p>
+    </div>
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-card">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-300">Scans</p>
+      <div class="mt-2 flex items-end gap-2">
+        <span class="text-3xl font-bold text-white">{{ scans|length }}</span>
+        <span class="text-sm text-slate-400">runs</span>
+      </div>
+      <p class="mt-1 text-xs text-slate-400">Kick off fuzzing and SAST tools from one place.</p>
+    </div>
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-card">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-300">Findings (selected)</p>
+      <div class="mt-2 flex items-end gap-2">
+        <span class="text-3xl font-bold text-white">{{ findings|length }}</span>
+        <span class="text-sm text-slate-400">issues</span>
+      </div>
+      <p class="mt-1 text-xs text-slate-400">Filter by severity and tool below.</p>
+    </div>
+  </section>
+
+  <div class="grid grid-cols-1 gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+    <section class="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-card">
       <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-slate-900">Projects</h2>
-        <span class="text-xs text-slate-500">{{ projects|length }} total</span>
+        <h2 class="text-lg font-semibold text-white">Projects</h2>
+        <span class="text-xs text-slate-300">{{ projects|length }} total</span>
       </div>
 
       {% if projects %}
         <ul class="grid gap-3">
           {% for project in projects %}
-            <li class="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3">
-              <div class="font-semibold text-slate-900">{{ project.name }}</div>
-              <div class="text-sm text-slate-600">{{ project.path }}</div>
+            <li class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+              <div class="font-semibold text-white">{{ project.name }}</div>
+              <div class="text-sm text-slate-200">{{ project.path }}</div>
               {% if project.meta %}
-                <div class="text-xs text-slate-500">Meta: {{ project.meta }}</div>
+                <div class="text-xs text-slate-300">Meta: {{ project.meta }}</div>
               {% endif %}
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="text-sm text-slate-600">No projects yet. Add one below to start scanning.</p>
+        <p class="text-sm text-slate-200">No projects yet. Add one below to start scanning.</p>
       {% endif %}
 
-      <form method="post" action="{{ url_for('create_project_web') }}" class="mt-6 grid gap-4">
+      <form method="post" action="{{ url_for('create_project_web') }}" class="mt-6 grid gap-4 rounded-xl border border-white/10 bg-slate-900/60 p-4">
+        <p class="text-sm font-semibold text-white">Add a project</p>
         <div class="grid gap-2">
-          <label class="text-sm font-semibold text-slate-700">Project name</label>
+          <label class="text-sm font-semibold text-slate-200">Project name</label>
           <input
             required
             name="name"
             placeholder="ex: sample-audits"
-            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            class="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
           />
         </div>
         <div class="grid gap-2">
-          <label class="text-sm font-semibold text-slate-700">Path to contracts (used as scan target root)</label>
+          <label class="text-sm font-semibold text-slate-200">Path to contracts (used as scan target root)</label>
           <input
             required
             name="path"
             placeholder="/workspace/contracts"
-            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            class="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
           />
         </div>
         <div class="grid gap-2">
-          <label class="text-sm font-semibold text-slate-700">Meta (JSON optional)</label>
+          <label class="text-sm font-semibold text-slate-200">Meta (JSON optional)</label>
           <textarea
             name="meta"
             placeholder='{"network": "sepolia"}'
             rows="2"
-            class="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            class="w-full resize-y rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
           ></textarea>
         </div>
         <div class="flex justify-end">
           <button
             type="submit"
-            class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-300/80"
           >
             Add project
           </button>
@@ -99,67 +131,67 @@
       </form>
     </section>
 
-    <section class="bg-white border border-slate-200 shadow-card rounded-xl p-6">
-      <h2 class="text-lg font-semibold text-slate-900">Start a scan</h2>
-      <p class="mt-1 text-sm text-slate-600">Pick a project, choose tools, and provide a target path. Status updates every few seconds once started.</p>
+    <section class="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-card">
+      <h2 class="text-lg font-semibold text-white">Start a scan</h2>
+      <p class="mt-1 text-sm text-slate-200">Pick a project, choose tools, and provide a target path. Status updates every few seconds once started.</p>
 
-      <form method="post" action="{{ url_for('start_scan_web') }}" class="mt-4 grid gap-4">
+      <form method="post" action="{{ url_for('start_scan_web') }}" class="mt-4 grid gap-4 rounded-xl border border-white/10 bg-slate-900/60 p-4">
         <div class="grid gap-2">
-          <label class="text-sm font-semibold text-slate-700">Project</label>
+          <label class="text-sm font-semibold text-slate-200">Project</label>
           <select
             required
             name="project_id"
-            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            class="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm text-white focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
           >
             <option value="" disabled {% if not selected_scan_id %}selected{% endif %}>Select a project</option>
             {% for project in projects %}
-              <option value="{{ project.id }}">{{ project.name }}</option>
+              <option value="{{ project.id }}" {% if selected_scan and selected_scan.project_id == project.id %}selected{% endif %}>{{ project.name }}</option>
             {% endfor %}
           </select>
         </div>
 
         <div class="grid gap-2">
-          <label class="text-sm font-semibold text-slate-700">Tools</label>
+          <label class="text-sm font-semibold text-slate-200">Tools</label>
           <div class="flex flex-wrap gap-2">
             {% for tool in toolbox %}
-              <label class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300">
-                <input type="checkbox" class="rounded border-slate-300" name="tools" value="{{ tool }}" checked />
-                {{ tool }}
+              <label class="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white shadow-sm">
+                <input type="checkbox" name="tools" value="{{ tool }}" class="h-4 w-4 rounded border-white/20 bg-transparent text-sky-400 focus:ring-sky-500/60" />
+                {{ tool|capitalize }}
               </label>
             {% endfor %}
           </div>
         </div>
 
         <div class="grid gap-2">
-          <label class="text-sm font-semibold text-slate-700">Target path</label>
+          <label class="text-sm font-semibold text-slate-200">Target path</label>
           <input
             required
             name="target"
             value="{{ default_target }}"
-            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            class="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
           />
         </div>
 
         <div class="flex justify-end gap-3">
-          <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-200">
+          <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-300/80">
             Start scan
           </button>
         </div>
       </form>
 
-      <div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-        <h3 class="text-sm font-semibold text-slate-900">New to the workflow?</h3>
-        <p class="mt-1 text-sm text-slate-600">
+      <div class="mt-6 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+        <h3 class="text-sm font-semibold text-white">New to the workflow?</h3>
+        <p class="mt-1 text-sm text-slate-200">
           Use this starter file to validate the workflow. Download or copy it, place it under your project path (e.g.
-          <code class="rounded bg-slate-200 px-1 py-0.5 text-xs">contracts/SampleToken.sol</code>), then run a scan against that path.
+          <code class="rounded bg-slate-800 px-1 py-0.5 text-xs">contracts/SampleToken.sol</code>), then run a scan against that path.
         </p>
         <div class="mt-3 flex flex-wrap gap-3">
-          <button id="copy-contract" type="button" class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-100">
+          <button id="copy-contract" type="button" class="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30">
             Copy contract
           </button>
           <a
             href="{{ url_for('download_sample_contract') }}"
-            class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-300/80"
           >
             Download SampleToken.sol
           </a>
@@ -170,18 +202,18 @@
     </section>
   </div>
 
-  <section class="bg-white border border-slate-200 shadow-card rounded-xl p-6 mt-5">
+  <section class="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-card">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">Scan history</h2>
-        <p class="text-sm text-slate-600">Select a run to view live findings and logs.</p>
+        <h2 class="text-lg font-semibold text-white">Scan history</h2>
+        <p class="text-sm text-slate-200">Select a run to view live findings and logs.</p>
       </div>
-      <span class="text-xs text-slate-500">{{ scans|length }} run{{ '' if scans|length == 1 else 's' }}</span>
+      <span class="text-xs text-slate-300">{{ scans|length }} run{{ '' if scans|length == 1 else 's' }}</span>
     </div>
 
-    <div class="mt-3 overflow-x-auto">
-      <table class="min-w-full divide-y divide-slate-200 text-sm">
-        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <div class="mt-3 overflow-x-auto rounded-xl border border-white/10">
+      <table class="min-w-full divide-y divide-white/10 text-sm">
+        <thead class="bg-white/5 text-left text-xs font-semibold uppercase tracking-wide text-slate-200">
           <tr>
             <th class="px-3 py-2">Status</th>
             <th class="px-3 py-2">Project</th>
@@ -191,30 +223,30 @@
             <th class="px-3 py-2">Finished</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody class="divide-y divide-white/5">
           {% if not scans %}
             <tr>
-              <td colspan="6" class="px-3 py-4 text-center text-slate-500">No scans yet. Kick off a scan to see live feedback.</td>
+              <td colspan="6" class="px-3 py-4 text-center text-slate-300">No scans yet. Kick off a scan to see live feedback.</td>
             </tr>
           {% endif %}
           {% for scan in scans %}
-            <tr class="{{ 'bg-indigo-50/60' if selected_scan_id == scan.id else 'bg-white' }}">
+            <tr class="{{ 'bg-indigo-500/10' if selected_scan_id == scan.id else 'bg-transparent' }} hover:bg-white/5">
               <td class="px-3 py-3">
                 <a class="block" href="{{ url_for('dashboard') }}?selected_scan_id={{ scan.id }}">
-                  <span class="inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase {{ badge_classes.get(scan.status.value if scan.status else scan.status, 'bg-slate-100 text-slate-700 border-slate-200') }}">
+                  <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase {{ badge_classes.get(scan.status.value if scan.status else scan.status, 'bg-slate-400/20 text-slate-100 border border-slate-300/40') }}">
                     {{ scan.status.value if scan.status else scan.status }}
                   </span>
                 </a>
               </td>
-              <td class="px-3 py-3 font-semibold text-slate-800">
+              <td class="px-3 py-3 font-semibold text-white">
                 <a class="block" href="{{ url_for('dashboard') }}?selected_scan_id={{ scan.id }}">
                   {{ scan.project.name if scan.project else scan.project_id }}
                 </a>
               </td>
-              <td class="px-3 py-3 text-slate-700">{{ scan.target }}</td>
-              <td class="px-3 py-3 text-slate-700">{{ ', '.join(scan.tools or []) }}</td>
-              <td class="px-3 py-3 text-slate-600">{{ scan.started_at.strftime('%Y-%m-%d %H:%M:%S') if scan.started_at else '—' }}</td>
-              <td class="px-3 py-3 text-slate-600">{{ scan.finished_at.strftime('%Y-%m-%d %H:%M:%S') if scan.finished_at else '—' }}</td>
+              <td class="px-3 py-3 text-slate-200">{{ scan.target }}</td>
+              <td class="px-3 py-3 text-slate-200">{{ ', '.join(scan.tools or []) }}</td>
+              <td class="px-3 py-3 text-slate-300">{{ scan.started_at.strftime('%Y-%m-%d %H:%M:%S') if scan.started_at else '—' }}</td>
+              <td class="px-3 py-3 text-slate-300">{{ scan.finished_at.strftime('%Y-%m-%d %H:%M:%S') if scan.finished_at else '—' }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -223,27 +255,27 @@
   </section>
 
   {% if selected_scan %}
-    <section class="bg-white border border-slate-200 shadow-card rounded-xl p-6 mt-5">
+    <section class="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-card">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="text-lg font-semibold text-slate-900">Findings for scan {{ selected_scan_id }}</h2>
-          <p class="text-sm text-slate-600">Severity and tool filters are available below.</p>
+          <h2 class="text-lg font-semibold text-white">Findings for scan {{ selected_scan_id }}</h2>
+          <p class="text-sm text-slate-200">Severity and tool filters are available below.</p>
         </div>
         <a
           href="{{ url_for('dashboard') }}?selected_scan_id={{ selected_scan_id }}"
-          class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-100"
+          class="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:border-white/25 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/30"
         >
           Reload findings
         </a>
       </div>
 
-      <form method="get" action="{{ url_for('dashboard') }}" class="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+      <form method="get" action="{{ url_for('dashboard') }}" class="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-3 text-sm">
         <input type="hidden" name="selected_scan_id" value="{{ selected_scan_id }}" />
-        <label class="text-slate-700 flex items-center gap-2">
+        <label class="text-slate-200 flex items-center gap-2">
           Severity:
           <select
             name="severity"
-            class="ml-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-800 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            class="ml-2 rounded-md border border-white/10 bg-white/10 px-2 py-1 text-xs font-medium text-white focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
           >
             <option value="" {% if not severity_filter %}selected{% endif %}>All</option>
             {% for sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'] %}
@@ -251,24 +283,24 @@
             {% endfor %}
           </select>
         </label>
-        <label class="text-slate-700 flex items-center gap-2">
+        <label class="text-slate-200 flex items-center gap-2">
           Tool:
           <input
             name="tool"
             value="{{ tool_filter }}"
             placeholder="slither"
-            class="ml-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+            class="ml-2 rounded-md border border-white/10 bg-white/10 px-2 py-1 text-xs text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
           />
         </label>
-        <span class="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">{{ findings|length }} finding{{ '' if findings|length == 1 else 's' }}</span>
-        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-200">
+        <span class="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-slate-200">{{ findings|length }} finding{{ '' if findings|length == 1 else 's' }}</span>
+        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-500 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-300/80">
           Apply filters
         </button>
       </form>
 
-      <div class="mt-3 overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div class="mt-3 overflow-x-auto rounded-xl border border-white/10">
+        <table class="min-w-full divide-y divide-white/10 text-sm">
+          <thead class="bg-white/5 text-left text-xs font-semibold uppercase tracking-wide text-slate-200">
             <tr>
               <th class="px-3 py-2">Severity</th>
               <th class="px-3 py-2">Tool</th>
@@ -277,21 +309,21 @@
               <th class="px-3 py-2">Location</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody class="divide-y divide-white/5">
             {% if not findings %}
               <tr>
-                <td colspan="5" class="px-3 py-4 text-center text-slate-500">No findings yet for this scan.</td>
+                <td colspan="5" class="px-3 py-4 text-center text-slate-300">No findings yet for this scan.</td>
               </tr>
             {% endif %}
             {% for finding in findings %}
-              <tr class="bg-white hover:bg-slate-50">
+              <tr class="bg-transparent hover:bg-white/5">
                 <td class="px-3 py-3">
-                  <span class="inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase {{ badge_classes.get(finding.severity, 'bg-slate-100 text-slate-700 border-slate-200') }}">{{ finding.severity }}</span>
+                  <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase {{ badge_classes.get(finding.severity, 'bg-slate-400/20 text-slate-100 border border-slate-300/40') }}">{{ finding.severity }}</span>
                 </td>
-                <td class="px-3 py-3 font-semibold text-slate-800">{{ finding.tool }}</td>
-                <td class="px-3 py-3 text-slate-700">{{ finding.category or '—' }}</td>
-                <td class="px-3 py-3 text-slate-900">{{ finding.title }}</td>
-                <td class="px-3 py-3 text-slate-600">{{ finding.file_path or 'unknown' }}{% if finding.line_number %}:{{ finding.line_number }}{% endif %}</td>
+                <td class="px-3 py-3 font-semibold text-white">{{ finding.tool }}</td>
+                <td class="px-3 py-3 text-slate-200">{{ finding.category or '—' }}</td>
+                <td class="px-3 py-3 text-white">{{ finding.title }}</td>
+                <td class="px-3 py-3 text-slate-300">{{ finding.file_path or 'unknown' }}{% if finding.line_number %}:{{ finding.line_number }}{% endif %}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -300,8 +332,8 @@
 
       {% if selected_scan.logs %}
         <div class="mt-4">
-          <h3 class="mb-2 text-base font-semibold text-slate-900">Worker feedback</h3>
-          <pre class="max-h-64 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-100 whitespace-pre-wrap">{{ selected_scan.logs }}</pre>
+          <h3 class="mb-2 text-base font-semibold text-white">Worker feedback</h3>
+          <pre class="max-h-64 overflow-x-auto rounded-lg bg-slate-950 p-4 text-sm text-slate-100 whitespace-pre-wrap">{{ selected_scan.logs }}</pre>
         </div>
       {% endif %}
     </section>
@@ -319,10 +351,10 @@
         try {
           await navigator.clipboard.writeText(contractText.textContent || '')
           feedback.textContent = 'Sample Solidity contract copied to clipboard.'
-          feedback.className = 'mt-2 text-xs font-semibold text-emerald-700'
+          feedback.className = 'mt-2 text-xs font-semibold text-emerald-300'
         } catch (error) {
           feedback.textContent = 'Could not copy contract to clipboard. Please copy manually.'
-          feedback.className = 'mt-2 text-xs font-semibold text-rose-700'
+          feedback.className = 'mt-2 text-xs font-semibold text-rose-200'
         }
         feedback.classList.remove('hidden')
       })
