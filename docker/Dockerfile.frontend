@@ -1,7 +1,20 @@
 FROM node:20-alpine
+
 WORKDIR /app
-COPY frontend/package.json frontend/package-lock.json* ./
+
+# Copy ONLY dependency files first — smallest cache key
+COPY frontend/package*.json ./
+
 RUN npm install
-COPY frontend /app
+
+# Now copy the rest of the frontend source
+COPY frontend/ .
+
+# Build the Vite app
 RUN npm run build
+
+# Expose port for Vite preview or dev
+EXPOSE 3000
+
+# If you want the dev server inside Docker:
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
