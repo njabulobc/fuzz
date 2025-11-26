@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.config import get_settings
 from app.db.session import Base
-from app.routes import projects, scans, findings
+from app.routes import findings, projects, scans, web
 
 settings = get_settings()
 
@@ -33,6 +33,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(web.router)
 app.include_router(projects.router, prefix="/api")
 app.include_router(scans.router, prefix="/api")
 app.include_router(findings.router, prefix="/api")

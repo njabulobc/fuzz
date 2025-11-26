@@ -1,4 +1,3 @@
-
 services:
   db:
     image: postgres:15
@@ -39,7 +38,7 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
-    
+
   worker:
     build:
       context: .
@@ -53,16 +52,3 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-  web:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.frontend
-    environment:
-      VITE_API_URL: http://api:8000/api
-    depends_on:
-      api:
-        condition: service_started
-    ports:
-      - "3000:3000"
-      
