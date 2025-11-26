@@ -70,6 +70,22 @@ type ScanDetail = ScanSummary & { findings: Finding[] }
 type Toast = { tone: 'info' | 'success' | 'error'; message: string }
 
 const TOOLBOX = ['slither', 'mythril', 'echidna']
+const PROJECT_FORM_STORAGE_KEY = 'projectForm'
+const SCAN_FORM_STORAGE_KEY = 'scanForm'
+const SELECTED_SCAN_STORAGE_KEY = 'selectedScanId'
+const DEFAULT_PROJECT_FORM = { name: '', path: '', meta: '' }
+const DEFAULT_SCAN_FORM = { project_id: '', target: 'contracts/SampleToken.sol', tools: [...TOOLBOX] }
+
+const safeLoadJson = <T,>(value: string | null, fallback: T): T => {
+  if (!value) return fallback
+  try {
+    const parsed = JSON.parse(value) as T
+    return { ...fallback, ...parsed }
+  } catch (error) {
+    console.warn('Could not parse persisted form data', error)
+    return fallback
+  }
+}
 
 const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([])
@@ -79,8 +95,8 @@ const App: React.FC = () => {
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [loadingScans, setLoadingScans] = useState(false)
   const [loadingFindings, setLoadingFindings] = useState(false)
-  const [projectForm, setProjectForm] = useState({ name: '', path: '', meta: '' })
-  const [scanForm, setScanForm] = useState({ project_id: '', target: 'contracts/SampleToken.sol', tools: [...TOOLBOX] })
+  const [projectForm, setProjectForm] = useState(DEFAULT_PROJECT_FORM)
+  const [scanForm, setScanForm] = useState(DEFAULT_SCAN_FORM)
   const [toast, setToast] = useState<Toast | null>(null)
 
   const showToast = (toast: Toast) => {
@@ -93,7 +109,8 @@ const App: React.FC = () => {
     try {
       const res = await axios.get<Project[]>(`${API_URL}/projects`)
       setProjects(res.data)
-      if (!scanForm.project_id && res.data.length > 0) {
+      const hasSelectedProject = res.data.some((p) => p.id === scanForm.project_id)
+      if ((!scanForm.project_id || !hasSelectedProject) && res.data.length > 0) {
         setScanForm((prev) => ({ ...prev, project_id: res.data[0].id }))
       }
     } catch (error) {
@@ -138,7 +155,7 @@ const App: React.FC = () => {
       const payload = { name: projectForm.name, path: projectForm.path, meta }
       const res = await axios.post<Project>(`${API_URL}/projects`, payload)
       setProjects((prev) => [...prev, res.data])
-      setProjectForm({ name: '', path: '', meta: '' })
+      setProjectForm(DEFAULT_PROJECT_FORM)
       showToast({ tone: 'success', message: 'Project added successfully' })
       if (!scanForm.project_id) {
         setScanForm((prev) => ({ ...prev, project_id: res.data.id }))
@@ -181,6 +198,32 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url)
     showToast({ tone: 'info', message: 'SampleToken.sol downloaded. Place it in your project path.' })
   }
+
+  useEffect(() => {
+    const storedProjectForm = safeLoadJson(localStorage.getItem(PROJECT_FORM_STORAGE_KEY), DEFAULT_PROJECT_FORM)
+    const storedScanForm = safeLoadJson(localStorage.getItem(SCAN_FORM_STORAGE_KEY), DEFAULT_SCAN_FORM)
+    const storedSelectedScan = localStorage.getItem(SELECTED_SCAN_STORAGE_KEY)
+
+    setProjectForm(storedProjectForm)
+    setScanForm(storedScanForm)
+    if (storedSelectedScan) setSelectedScanId(storedSelectedScan)
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(PROJECT_FORM_STORAGE_KEY, JSON.stringify(projectForm))
+  }, [projectForm])
+
+  useEffect(() => {
+    localStorage.setItem(SCAN_FORM_STORAGE_KEY, JSON.stringify(scanForm))
+  }, [scanForm])
+
+  useEffect(() => {
+    if (selectedScanId) {
+      localStorage.setItem(SELECTED_SCAN_STORAGE_KEY, selectedScanId)
+    } else {
+      localStorage.removeItem(SELECTED_SCAN_STORAGE_KEY)
+    }
+  }, [selectedScanId])
 
   useEffect(() => {
     loadProjects()
