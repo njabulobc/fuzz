@@ -4,7 +4,9 @@ import { FindingsTable } from '../components/FindingsTable'
 
 const defaultApiUrl = (() => {
   if (typeof window === 'undefined') return 'http://localhost:8000/api'
-  return `http://${window.location.hostname}:8000/api`
+
+  const origin = window.location.origin || 'http://${window.location.hostname}'
+  return `${origin.replace(/\/$/, '')}/api`
 })()
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? defaultApiUrl
