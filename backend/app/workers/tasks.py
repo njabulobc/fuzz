@@ -9,7 +9,7 @@ from app import models
 from app.services.scanner import execute_scan
 
 
-@celery_app.task(bind=True, name="run_scan")
+@celery_app.task(bind=True)
 def run_scan_task(self, scan_id: str):
     db: Session = SessionLocal()
     try:
