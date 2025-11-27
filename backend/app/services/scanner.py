@@ -167,6 +167,7 @@ def _execute_tool(scan_id: str, tool_name: str, target_path: Path, workspace: Pa
 
         config = settings.get_tool_config(tool_name)
         attempts = max(1, config.retries + 1)
+        all_findings: List[NormalizedFinding] = []
         for attempt in range(attempts):
             tool_exec.attempt += 1
             tool_exec.status = models.ToolExecutionStatus.RUNNING
@@ -184,7 +185,7 @@ def _execute_tool(scan_id: str, tool_name: str, target_path: Path, workspace: Pa
                 log_dir=attempt_dir,
                 env=env,
             )
-            _store_findings(db, scan_id, findings)
+            all_findings.extend(findings)
 
             status = (
                 models.ToolExecutionStatus.SUCCEEDED
@@ -195,7 +196,12 @@ def _execute_tool(scan_id: str, tool_name: str, target_path: Path, workspace: Pa
                     else models.ToolExecutionStatus.FAILED
                 )
             )
-            _update_tool_record(tool_exec, result, findings, status)
+            is_final_attempt = status != models.ToolExecutionStatus.RETRYING
+            if is_final_attempt:
+                _store_findings(db, scan_id, all_findings)
+
+            attempt_findings = all_findings if is_final_attempt else findings
+            _update_tool_record(tool_exec, result, attempt_findings, status)
             db.commit()
 
             if result.success:
