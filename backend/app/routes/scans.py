@@ -19,7 +19,12 @@ def get_db():
         db.close()
 
 
-def _create_scan(db: Session, project_id: str, target: str, tools: list[str]):
+def _create_scan(
+    db: Session,
+    project_id: str,
+    target: str,
+    tools: list[str],
+):
     scan = models.Scan(
         project_id=project_id,
         target=target,
@@ -76,7 +81,12 @@ def start_scan(payload: schemas.ScanRequest, db: Session = Depends(get_db)):
                 db.commit()
                 db.refresh(project)
 
-    scan = _create_scan(db, project.id, payload.target, payload.tools)
+    scan = _create_scan(
+        db,
+        project.id,
+        payload.target,
+        payload.tools,
+    )
     return scan
 
 
@@ -100,7 +110,12 @@ def quick_scan(payload: schemas.QuickScanRequest, db: Session = Depends(get_db))
             db.commit()
             db.refresh(project)
 
-    scan = _create_scan(db, project.id, payload.target, payload.tools)
+    scan = _create_scan(
+        db,
+        project.id,
+        payload.target,
+        payload.tools,
+    )
 
     return schemas.QuickScanResponse(project_id=project.id, scan_id=scan.id)
 

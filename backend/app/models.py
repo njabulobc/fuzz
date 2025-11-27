@@ -2,7 +2,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Enum, ForeignKey, JSON, Text, Integer, Float
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 import enum
 
@@ -42,6 +53,8 @@ class Scan(Base):
     status = Column(Enum(ScanStatus), default=ScanStatus.PENDING)
     tools = Column(JSON, nullable=False)
     target = Column(String, nullable=False)
+    fake_results = Column(Boolean, default=False)
+    fake_findings = Column(JSON, nullable=True)
     started_at = Column(DateTime, default=datetime.utcnow)
     finished_at = Column(DateTime, nullable=True)
     logs = Column(Text, nullable=True)
