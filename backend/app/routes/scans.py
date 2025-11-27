@@ -35,11 +35,48 @@ def _create_scan(db: Session, project_id: str, target: str, tools: list[str]):
 
 @router.post("", response_model=schemas.ScanRead)
 def start_scan(payload: schemas.ScanRequest, db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter(models.Project.id == payload.project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = None
 
-    scan = _create_scan(db, payload.project_id, payload.target, payload.tools)
+    if payload.project_id:
+        project = db.query(models.Project).filter(models.Project.id == payload.project_id).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+    else:
+        project = (
+            db.query(models.Project).filter(models.Project.name == payload.project_name).first()
+        )
+
+        meta = payload.meta.copy() if payload.meta else {}
+        if payload.chain:
+            meta.setdefault("chain", payload.chain)
+        if payload.scan_name:
+            meta.setdefault("scan_name", payload.scan_name)
+
+        if not project:
+            project = models.Project(
+                name=payload.project_name,
+                path=payload.project_path,
+                meta=meta or None,
+            )
+            db.add(project)
+            db.commit()
+            db.refresh(project)
+        else:
+            updated = False
+            if payload.project_path and project.path != payload.project_path:
+                project.path = payload.project_path
+                updated = True
+            if meta:
+                existing_meta = project.meta or {}
+                merged_meta = {**existing_meta, **meta}
+                if merged_meta != existing_meta:
+                    project.meta = merged_meta
+                    updated = True
+            if updated:
+                db.commit()
+                db.refresh(project)
+
+    scan = _create_scan(db, project.id, payload.target, payload.tools)
     return scan
 
 
