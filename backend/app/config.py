@@ -27,12 +27,14 @@ class Settings(BaseSettings):
     mythril_path: str = Field(default=os.environ.get("MYTHRIL_PATH", "myth"))
     echidna_path: str = Field(default=os.environ.get("ECHIDNA_PATH", "echidna-test"))
     manticore_path: str = Field(default=os.environ.get("MANTICORE_PATH", "manticore"))
+    foundry_path: str = Field(default=os.environ.get("FOUNDRY_PATH", "forge"))
     storage_path: str = Field(default=os.environ.get("STORAGE_PATH", "storage"))
     tool_settings: dict[str, ToolSettings] = Field(
         default_factory=lambda: {
             "default": ToolSettings(),
             "echidna": ToolSettings(fuzz_duration_seconds=600, max_runtime_seconds=900),
             "manticore": ToolSettings(max_runtime_seconds=900),
+            "foundry": ToolSettings(max_runtime_seconds=900),
         }
     )
 

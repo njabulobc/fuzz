@@ -111,7 +111,7 @@ type QuickScanResult = { project_id: string; scan_id: string }
 
 type Toast = { tone: 'info' | 'success' | 'error'; message: string }
 
-const TOOLBOX = ['slither', 'mythril', 'echidna']
+const TOOLBOX = ['slither', 'mythril', 'echidna', 'foundry']
 const PROJECT_FORM_STORAGE_KEY = 'projectForm'
 const SCAN_FORM_STORAGE_KEY = 'scanForm'
 const QUICK_SCAN_FORM_STORAGE_KEY = 'quickScanForm'
