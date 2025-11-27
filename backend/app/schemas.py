@@ -10,6 +10,22 @@ from pydantic import BaseModel, Field, model_validator
 from app.models import ScanStatus, ToolExecutionStatus
 
 
+class FakeFinding(BaseModel):
+    tool: Optional[str] = None
+    title: str
+    description: str
+    severity: str
+    category: Optional[str] = None
+    file_path: Optional[str] = None
+    line_number: Optional[str] = None
+    function: Optional[str] = None
+    tool_version: Optional[str] = None
+    input_seed: Optional[str] = None
+    coverage: Optional[dict] = None
+    assertions: Optional[dict] = None
+    raw: Optional[dict] = None
+
+
 class ProjectCreate(BaseModel):
     name: str
     path: str
@@ -34,6 +50,8 @@ class ScanRequest(BaseModel):
     log_file: str | None = None
     chain: str | None = None
     meta: Optional[dict] = None
+    fake_results: bool = False
+    fake_findings: Optional[List[FakeFinding]] = None
 
     @model_validator(mode="after")
     def ensure_project_and_target(self):
@@ -68,6 +86,8 @@ class QuickScanRequest(BaseModel):
     project: QuickScanProject
     target: str
     tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna", "foundry"])
+    fake_results: bool = False
+    fake_findings: Optional[List[FakeFinding]] = None
 
 
 class ScanRead(BaseModel):
@@ -76,6 +96,8 @@ class ScanRead(BaseModel):
     status: ScanStatus
     tools: List[str]
     target: str
+    fake_results: bool = False
+    fake_findings: Optional[List[FakeFinding]] = None
     started_at: datetime
     finished_at: Optional[datetime]
     logs: Optional[str]
