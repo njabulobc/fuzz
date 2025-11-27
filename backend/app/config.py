@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     echidna_path: str = Field(default=os.environ.get("ECHIDNA_PATH", "echidna-test"))
     manticore_path: str = Field(default=os.environ.get("MANTICORE_PATH", "manticore"))
     default_timeout_seconds: int = 600
+    tool_max_retries: int = 1
+
+    @property
+    def tool_attempts(self) -> int:
+        """Total attempts per tool including the initial run."""
+
+        return max(1, self.tool_max_retries + 1)
 
     class Config:
         env_file = ".env"
