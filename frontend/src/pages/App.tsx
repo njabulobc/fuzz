@@ -75,6 +75,18 @@ type Finding = {
 type ScanDetail = ScanSummary & { findings: Finding[] }
 type QuickScanResult = { project_id: string; scan_id: string }
 
+type ToolExecutionLog = {
+  tool: string
+  status: string
+  attempts: number
+  success: boolean
+  started_at?: string | null
+  finished_at?: string | null
+  errors: string[]
+  findings_count: number
+  last_output?: string | null
+}
+
 type Toast = { tone: 'info' | 'success' | 'error'; message: string }
 
 const TOOLBOX = ['slither', 'mythril', 'echidna']
@@ -295,6 +307,44 @@ const App: React.FC = () => {
   }, [selectedScanId, loadScans, loadScanDetail])
 
   const selectedFindings = useMemo(() => scanDetail?.findings ?? [], [scanDetail])
+
+  const parsedLogs: ToolExecutionLog[] = useMemo(() => {
+    if (!scanDetail?.logs) return []
+    try {
+      const parsed = JSON.parse(scanDetail.logs)
+      if (Array.isArray(parsed)) {
+        return parsed as ToolExecutionLog[]
+      }
+      return []
+    } catch (error) {
+      console.warn('Could not parse tool logs', error)
+      return []
+    }
+  }, [scanDetail])
+
+  const findingsBySeverity = useMemo(() => {
+    return selectedFindings.reduce<Record<string, number>>((acc, finding) => {
+      acc[finding.severity] = (acc[finding.severity] ?? 0) + 1
+      return acc
+    }, {})
+  }, [selectedFindings])
+
+  const formatTimestamp = (value?: string | null) => {
+    return value ? new Date(value).toLocaleString() : '—'
+  }
+
+  const formatDuration = () => {
+    if (!scanDetail?.started_at || !scanDetail.finished_at) return '—'
+    const start = new Date(scanDetail.started_at)
+    const end = new Date(scanDetail.finished_at)
+    const diffMs = end.getTime() - start.getTime()
+    if (Number.isNaN(diffMs) || diffMs < 0) return '—'
+
+    const minutes = Math.floor(diffMs / 1000 / 60)
+    const seconds = Math.floor((diffMs / 1000) % 60)
+    if (minutes === 0) return `${seconds}s`
+    return `${minutes}m ${seconds.toString().padStart(2, '0')}s`
+  }
 
   const badgeClass = (status: string) => {
     switch (status) {
@@ -662,13 +712,100 @@ const App: React.FC = () => {
               </button>
             </div>
 
+            {scanDetail && (
+              <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Scan status</p>
+                  <span
+                    className={`mt-2 inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase ${badgeClass(
+                      scanDetail.status,
+                    )}`}
+                  >
+                    {scanDetail.status}
+                  </span>
+                  <p className="mt-2 text-sm text-slate-700">Target: {scanDetail.target}</p>
+                  <p className="text-xs text-slate-500">Tools: {scanDetail.tools.join(', ')}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Findings</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{selectedFindings.length}</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-700">
+                    {Object.entries(findingsBySeverity).map(([severity, count]) => (
+                      <span key={severity} className="rounded-full bg-white px-2 py-1 font-semibold text-slate-700">
+                        {severity}: {count}
+                      </span>
+                    ))}
+                    {selectedFindings.length === 0 && <span className="text-slate-500">No findings yet.</span>}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Timeline</p>
+                  <p className="mt-1 text-sm text-slate-700">Started: {formatTimestamp(scanDetail.started_at)}</p>
+                  <p className="text-sm text-slate-700">Finished: {formatTimestamp(scanDetail.finished_at)}</p>
+                  <p className="text-xs text-slate-500">Duration: {formatDuration()}</p>
+                </div>
+              </div>
+            )}
+
             <FindingsTable findings={selectedFindings} />
 
-            {scanDetail?.logs && (
-              <div className="mt-4">
-                <h3 className="mb-2 text-base font-semibold text-slate-900">Worker feedback</h3>
-                <pre className="max-h-64 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-100">{scanDetail.logs}</pre>
+            {parsedLogs.length > 0 ? (
+              <div className="mt-6">
+                <h3 className="mb-2 text-base font-semibold text-slate-900">Tool execution report</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Tool</th>
+                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Attempts</th>
+                        <th className="px-3 py-2">Findings</th>
+                        <th className="px-3 py-2">Errors</th>
+                        <th className="px-3 py-2">Started</th>
+                        <th className="px-3 py-2">Finished</th>
+                        <th className="px-3 py-2">Last output</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {parsedLogs.map((log) => (
+                        <tr key={log.tool} className="bg-white">
+                          <td className="px-3 py-3 font-semibold text-slate-800">{log.tool}</td>
+                          <td className="px-3 py-3">
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold uppercase text-slate-700">
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-slate-700">{log.attempts}</td>
+                          <td className="px-3 py-3 text-slate-700">{log.findings_count}</td>
+                          <td className="px-3 py-3 text-slate-700">
+                            {log.errors.length === 0 ? (
+                              <span className="text-slate-500">None</span>
+                            ) : (
+                              <ul className="list-disc space-y-1 pl-4 text-xs text-rose-700">
+                                {log.errors.map((err, idx) => (
+                                  <li key={idx}>{err}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-slate-700">{formatTimestamp(log.started_at)}</td>
+                          <td className="px-3 py-3 text-slate-700">{formatTimestamp(log.finished_at)}</td>
+                          <td className="px-3 py-3 text-slate-600">
+                            {log.last_output ? `${log.last_output.slice(0, 140)}${log.last_output.length > 140 ? '…' : ''}` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+            ) : (
+              scanDetail?.logs && (
+                <div className="mt-4">
+                  <h3 className="mb-2 text-base font-semibold text-slate-900">Worker feedback</h3>
+                  <pre className="max-h-64 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-100">{scanDetail.logs}</pre>
+                </div>
+              )
             )}
           </section>
         )}
