@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Enum, ForeignKey, JSON, Text
+from sqlalchemy import Column, String, DateTime, Enum, ForeignKey, JSON, Text, Integer, Float
 from sqlalchemy.orm import relationship
 import enum
 
@@ -13,6 +13,14 @@ class ScanStatus(str, enum.Enum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+
+class ToolExecutionStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    RETRYING = "RETRYING"
+    SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
 
 
@@ -40,6 +48,9 @@ class Scan(Base):
 
     project = relationship("Project", back_populates="scans")
     findings = relationship("Finding", back_populates="scan", cascade="all, delete")
+    tool_executions = relationship(
+        "ToolExecution", back_populates="scan", cascade="all, delete"
+    )
 
 
 class Finding(Base):
@@ -54,6 +65,39 @@ class Finding(Base):
     file_path = Column(String, nullable=True)
     line_number = Column(String, nullable=True)
     function = Column(String, nullable=True)
+    tool_version = Column(String, nullable=True)
+    input_seed = Column(String, nullable=True)
+    coverage = Column(JSON, nullable=True)
+    assertions = Column(JSON, nullable=True)
     raw = Column(JSON, nullable=True)
 
     scan = relationship("Scan", back_populates="findings")
+
+
+class ToolExecution(Base):
+    __tablename__ = "tool_executions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    scan_id = Column(String, ForeignKey("scans.id"), nullable=False)
+    tool = Column(String, nullable=False)
+    status = Column(Enum(ToolExecutionStatus), default=ToolExecutionStatus.PENDING)
+    attempt = Column(Integer, default=0)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    duration_seconds = Column(Float, nullable=True)
+    command = Column(JSON, nullable=True)
+    exit_code = Column(Integer, nullable=True)
+    stdout_path = Column(String, nullable=True)
+    stderr_path = Column(String, nullable=True)
+    environment = Column(JSON, nullable=True)
+    artifacts_path = Column(String, nullable=True)
+    error = Column(Text, nullable=True)
+    parsing_error = Column(Text, nullable=True)
+    failure_reason = Column(String, nullable=True)
+    findings_count = Column(Integer, default=0)
+    tool_version = Column(String, nullable=True)
+    input_seed = Column(String, nullable=True)
+    coverage = Column(JSON, nullable=True)
+    assertions = Column(JSON, nullable=True)
+
+    scan = relationship("Scan", back_populates="tool_executions")

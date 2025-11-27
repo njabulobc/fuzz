@@ -2,8 +2,17 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
+
+
+class ToolSettings(BaseModel):
+    timeout_seconds: int = 600
+    retries: int = 1
+    backoff_seconds: int = 5
+    max_runtime_seconds: int | None = None
+    fuzz_duration_seconds: int | None = None
+    env: dict[str, str] = Field(default_factory=dict)
 
 
 class Settings(BaseSettings):
@@ -18,14 +27,22 @@ class Settings(BaseSettings):
     mythril_path: str = Field(default=os.environ.get("MYTHRIL_PATH", "myth"))
     echidna_path: str = Field(default=os.environ.get("ECHIDNA_PATH", "echidna-test"))
     manticore_path: str = Field(default=os.environ.get("MANTICORE_PATH", "manticore"))
-    default_timeout_seconds: int = 600
-    tool_max_retries: int = 1
+    storage_path: str = Field(default=os.environ.get("STORAGE_PATH", "storage"))
+    tool_settings: dict[str, ToolSettings] = Field(
+        default_factory=lambda: {
+            "default": ToolSettings(),
+            "echidna": ToolSettings(fuzz_duration_seconds=600, max_runtime_seconds=900),
+            "manticore": ToolSettings(max_runtime_seconds=900),
+        }
+    )
 
-    @property
-    def tool_attempts(self) -> int:
-        """Total attempts per tool including the initial run."""
-
-        return max(1, self.tool_max_retries + 1)
+    def get_tool_config(self, tool: str) -> ToolSettings:
+        base = self.tool_settings.get("default", ToolSettings())
+        specific = self.tool_settings.get(tool)
+        if specific:
+            merged = {**base.model_dump(), **specific.model_dump(exclude_none=True)}
+            return ToolSettings(**merged)
+        return base
 
     class Config:
         env_file = ".env"

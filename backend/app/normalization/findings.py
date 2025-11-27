@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -14,4 +14,8 @@ class NormalizedFinding:
     file_path: Optional[str] = None
     line_number: Optional[str] = None
     function: Optional[str] = None
+    tool_version: Optional[str] = None
+    input_seed: Optional[str] = None
+    coverage: Optional[dict[str, Any]] = None
+    assertions: Optional[dict[str, Any]] = None
     raw: Optional[dict] = None

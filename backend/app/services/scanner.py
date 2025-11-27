@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import os
+import shutil
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import List
+
 from sqlalchemy.orm import Session
 
 from app import models
-from app.adapters import slither, mythril, echidna, manticore
+from app.adapters import echidna, manticore, mythril, slither
+from app.config import ToolSettings, get_settings
+from app.db.session import SessionLocal
 from app.normalization.findings import NormalizedFinding
-from app.config import get_settings
 
 settings = get_settings()
 
@@ -19,6 +26,10 @@ TOOL_MAP = {
     "echidna": echidna.run_echidna,
     "manticore": manticore.run_manticore,
 }
+
+
+def _iso(dt: datetime | None) -> str | None:
+    return dt.isoformat() if dt else None
 
 
 @dataclass
@@ -32,13 +43,201 @@ class ToolExecutionLog:
     errors: list[str] = field(default_factory=list)
     findings_count: int = 0
     last_output: str | None = None
+    stdout_path: str | None = None
+    stderr_path: str | None = None
 
     def as_dict(self) -> dict:
         return {
             **asdict(self),
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
+            "started_at": _iso(self.started_at),
+            "finished_at": _iso(self.finished_at),
         }
+
+
+def _prepare_workspace(scan: models.Scan) -> tuple[Path, Path]:
+    base_dir = Path(settings.storage_path) / "scans" / scan.id
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    target_path = Path(scan.target)
+    if not target_path.is_absolute() and scan.project:
+        target_path = Path(scan.project.path) / scan.target
+
+    if not target_path.exists():
+        raise FileNotFoundError(f"Target {target_path} not found")
+
+    isolated_target = base_dir / target_path.name
+    if target_path.is_dir():
+        shutil.copytree(target_path, isolated_target, dirs_exist_ok=True)
+    else:
+        isolated_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(target_path, isolated_target)
+
+    return base_dir, isolated_target
+
+
+def _create_tool_records(db: Session, scan: models.Scan, workspace: Path) -> None:
+    for tool in scan.tools:
+        existing = (
+            db.query(models.ToolExecution)
+            .filter(models.ToolExecution.scan_id == scan.id, models.ToolExecution.tool == tool)
+            .first()
+        )
+        if existing:
+            continue
+        db.add(
+            models.ToolExecution(
+                scan_id=scan.id,
+                tool=tool,
+                status=models.ToolExecutionStatus.PENDING,
+                artifacts_path=str(workspace / tool),
+            )
+        )
+    db.commit()
+
+
+def _store_findings(db: Session, scan_id: str, findings: List[NormalizedFinding]) -> None:
+    for f in findings:
+        db.add(
+            models.Finding(
+                scan_id=scan_id,
+                tool=f.tool,
+                title=f.title,
+                description=f.description,
+                severity=f.severity,
+                category=f.category,
+                file_path=f.file_path,
+                line_number=f.line_number,
+                function=f.function,
+                raw=f.raw,
+                tool_version=f.tool_version,
+                input_seed=f.input_seed,
+                coverage=f.coverage,
+                assertions=f.assertions,
+            )
+        )
+    db.commit()
+
+
+def _update_tool_record(
+    tool_exec: models.ToolExecution, result, findings: List[NormalizedFinding], status
+) -> None:
+    tool_exec.status = status
+    tool_exec.finished_at = result.finished_at or datetime.utcnow()
+    tool_exec.duration_seconds = result.duration_seconds
+    tool_exec.command = result.command
+    tool_exec.exit_code = result.return_code
+    tool_exec.stdout_path = result.stdout_path
+    tool_exec.stderr_path = result.stderr_path
+    tool_exec.environment = result.environment
+    tool_exec.artifacts_path = result.artifacts_path or tool_exec.artifacts_path
+    tool_exec.error = result.error
+    tool_exec.parsing_error = result.parsing_error
+    tool_exec.failure_reason = result.failure_reason
+    tool_exec.findings_count = len(findings)
+    tool_exec.tool_version = result.tool_version
+    if findings:
+        tool_exec.tool_version = tool_exec.tool_version or findings[0].tool_version
+        tool_exec.input_seed = findings[0].input_seed
+        tool_exec.coverage = findings[0].coverage
+        tool_exec.assertions = findings[0].assertions
+
+
+def _build_env(config: ToolSettings) -> dict[str, str]:
+    env = {"PATH": os.environ.get("PATH", "")}
+    env.update(config.env)
+    return env
+
+
+def _execute_tool(scan_id: str, tool_name: str, target_path: Path, workspace: Path) -> None:
+    db: Session = SessionLocal()
+    try:
+        tool_fn = TOOL_MAP.get(tool_name)
+        tool_exec = (
+            db.query(models.ToolExecution)
+            .filter(models.ToolExecution.scan_id == scan_id, models.ToolExecution.tool == tool_name)
+            .first()
+        )
+        if not tool_fn:
+            if tool_exec:
+                tool_exec.status = models.ToolExecutionStatus.FAILED
+                tool_exec.error = f"Tool {tool_name} not recognized"
+                tool_exec.finished_at = datetime.utcnow()
+                db.commit()
+            return
+
+        config = settings.get_tool_config(tool_name)
+        attempts = max(1, config.retries + 1)
+        for attempt in range(attempts):
+            tool_exec.attempt += 1
+            tool_exec.status = models.ToolExecutionStatus.RUNNING
+            tool_exec.started_at = datetime.utcnow()
+            db.commit()
+
+            attempt_dir = Path(tool_exec.artifacts_path or workspace / tool_name)
+            attempt_dir.mkdir(parents=True, exist_ok=True)
+            env = _build_env(config)
+
+            result, findings = tool_fn(
+                str(target_path),
+                config=config,
+                workdir=attempt_dir,
+                log_dir=attempt_dir,
+                env=env,
+            )
+            _store_findings(db, scan_id, findings)
+
+            status = (
+                models.ToolExecutionStatus.SUCCEEDED
+                if result.success
+                else (
+                    models.ToolExecutionStatus.RETRYING
+                    if attempt < attempts - 1
+                    else models.ToolExecutionStatus.FAILED
+                )
+            )
+            _update_tool_record(tool_exec, result, findings, status)
+            db.commit()
+
+            if result.success:
+                break
+            time.sleep(config.backoff_seconds)
+    finally:
+        db.close()
+
+
+async def _execute_tool_async(scan_id: str, tool: str, target_path: Path, workspace: Path) -> None:
+    await asyncio.to_thread(_execute_tool, scan_id, tool, target_path, workspace)
+
+
+def _build_logs_snapshot(db: Session, scan_id: str) -> str:
+    entries = (
+        db.query(models.ToolExecution)
+        .filter(models.ToolExecution.scan_id == scan_id)
+        .order_by(models.ToolExecution.tool)
+        .all()
+    )
+    logs = []
+    for entry in entries:
+        logs.append(
+            {
+                "tool": entry.tool,
+                "status": entry.status.value if entry.status else None,
+                "attempts": entry.attempt,
+                "success": entry.status == models.ToolExecutionStatus.SUCCEEDED,
+                "started_at": _iso(entry.started_at),
+                "finished_at": _iso(entry.finished_at),
+                "duration_seconds": entry.duration_seconds,
+                "errors": [entry.error] if entry.error else [],
+                "parsing_error": entry.parsing_error,
+                "stdout_path": entry.stdout_path,
+                "stderr_path": entry.stderr_path,
+                "findings_count": entry.findings_count,
+                "command": entry.command,
+                "exit_code": entry.exit_code,
+                "environment": entry.environment,
+            }
+        )
+    return json.dumps(logs)
 
 
 def execute_scan(db: Session, scan: models.Scan) -> None:
@@ -50,65 +249,29 @@ def execute_scan(db: Session, scan: models.Scan) -> None:
     db.commit()
     db.refresh(scan)
 
+    workspace, isolated_target = _prepare_workspace(scan)
+    _create_tool_records(db, scan, workspace)
 
-    logs: list[ToolExecutionLog] = []
-    all_findings: List[NormalizedFinding] = []
-    successful_tools = 0
-
-    for tool_name in scan.tools:
-        log = ToolExecutionLog(tool=tool_name, status="pending", started_at=datetime.utcnow())
-        tool = TOOL_MAP.get(tool_name)
-
-        if not tool:
-            log.status = "unknown-tool"
-            log.finished_at = datetime.utcnow()
-            log.errors.append(f"Tool {tool_name} not recognized")
-            logs.append(log)
-            continue
-
-        for attempt in range(settings.tool_attempts):
-            log.attempts += 1
-            try:
-                result, findings = tool(scan.target, timeout=settings.default_timeout_seconds)
-                log.last_output = (result.output or "")[:5000]
-                if result.error:
-                    log.errors.append(result.error)
-
-                if result.success:
-                    log.status = "completed"
-                    log.success = True
-                    log.findings_count = len(findings)
-                    all_findings.extend(findings)
-                    successful_tools += 1
-                    break
-                else:
-                    log.status = "retrying" if attempt < settings.tool_attempts - 1 else "failed"
-            except Exception as exc:  # pragma: no cover - defensive
-                log.errors.append(str(exc))
-                log.status = "retrying" if attempt < settings.tool_attempts - 1 else "failed"
-
-        log.finished_at = datetime.utcnow()
-        logs.append(log)
-
-    for f in all_findings:
-        db_finding = models.Finding(
-            scan_id=scan.id,
-            tool=f.tool,
-            title=f.title,
-            description=f.description,
-            severity=f.severity,
-            category=f.category,
-            file_path=f.file_path,
-            line_number=f.line_number,
-            function=f.function,
-            raw=f.raw,
+    async def runner() -> None:
+        await asyncio.gather(
+            *[
+                _execute_tool_async(scan.id, tool, isolated_target, workspace)
+                for tool in scan.tools
+            ]
         )
-        db.add(db_finding)
 
-    scan.finished_at = datetime.utcnow()
-    scan.status = (
-        models.ScanStatus.SUCCESS if successful_tools > 0 else models.ScanStatus.FAILED
+    asyncio.run(runner())
+
+    success_count = (
+        db.query(models.ToolExecution)
+        .filter(
+            models.ToolExecution.scan_id == scan.id,
+            models.ToolExecution.status == models.ToolExecutionStatus.SUCCEEDED,
+        )
+        .count()
     )
-    scan.logs = json.dumps([log.as_dict() for log in logs])
+    scan.finished_at = datetime.utcnow()
+    scan.status = models.ScanStatus.SUCCESS if success_count > 0 else models.ScanStatus.FAILED
+    scan.logs = _build_logs_snapshot(db, scan.id)
     db.commit()
     db.refresh(scan)

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-from app.models import ScanStatus
+from app.models import ScanStatus, ToolExecutionStatus
 
 
 class ProjectCreate(BaseModel):
@@ -66,7 +66,39 @@ class FindingRead(BaseModel):
     file_path: Optional[str]
     line_number: Optional[str]
     function: Optional[str]
+    tool_version: Optional[str]
+    input_seed: Optional[str]
+    coverage: Optional[dict]
+    assertions: Optional[dict]
     raw: Optional[dict]
+
+    class Config:
+        from_attributes = True
+
+
+class ToolExecutionRead(BaseModel):
+    id: str
+    scan_id: str
+    tool: str
+    status: ToolExecutionStatus
+    attempt: int
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
+    duration_seconds: Optional[float]
+    command: Optional[list[str]]
+    exit_code: Optional[int]
+    stdout_path: Optional[str]
+    stderr_path: Optional[str]
+    environment: Optional[dict]
+    artifacts_path: Optional[str]
+    error: Optional[str]
+    parsing_error: Optional[str]
+    failure_reason: Optional[str]
+    findings_count: int
+    tool_version: Optional[str]
+    input_seed: Optional[str]
+    coverage: Optional[dict]
+    assertions: Optional[dict]
 
     class Config:
         from_attributes = True
@@ -74,6 +106,7 @@ class FindingRead(BaseModel):
 
 class ScanDetail(ScanRead):
     findings: List[FindingRead]
+    tool_executions: List[ToolExecutionRead] = Field(default_factory=list)
 
 
 class QuickScanResponse(BaseModel):
