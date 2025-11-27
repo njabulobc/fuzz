@@ -29,7 +29,7 @@ class ScanRequest(BaseModel):
     project_name: str | None = None
     project_path: str | None = None
     target: str | None = None
-    tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna"])
+    tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna", "foundry"])
     scan_name: str | None = None
     log_file: str | None = None
     chain: str | None = None
@@ -67,7 +67,7 @@ class QuickScanProject(BaseModel):
 class QuickScanRequest(BaseModel):
     project: QuickScanProject
     target: str
-    tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna"])
+    tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna", "foundry"])
 
 
 class ScanRead(BaseModel):

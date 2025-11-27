@@ -13,7 +13,7 @@ from typing import List
 from sqlalchemy.orm import Session
 
 from app import models
-from app.adapters import echidna, manticore, mythril, slither
+from app.adapters import echidna, foundry, manticore, mythril, slither
 from app.config import ToolSettings, get_settings
 from app.db.session import SessionLocal
 from app.normalization.findings import NormalizedFinding
@@ -25,6 +25,7 @@ TOOL_MAP = {
     "mythril": mythril.run_mythril,
     "echidna": echidna.run_echidna,
     "manticore": manticore.run_manticore,
+    "foundry": foundry.run_foundry,
 }
 
 

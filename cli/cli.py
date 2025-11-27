@@ -25,7 +25,7 @@ def list_projects():
 
 @app.command()
 def run_scan(project_id: str, target: str, tools: Optional[str] = typer.Option(None)):
-    tools_list = tools.split(",") if tools else ["slither", "mythril", "echidna"]
+    tools_list = tools.split(",") if tools else ["slither", "mythril", "echidna", "foundry"]
     resp = requests.post(
         f"{API_URL}/scans",
         json={"project_id": project_id, "target": target, "tools": tools_list},
@@ -41,7 +41,7 @@ def quick_scan(
     meta: Optional[str] = typer.Option(None, help="Optional JSON metadata for the project"),
     tools: Optional[str] = typer.Option(None, help="Comma-separated list of tools to run"),
 ):
-    tools_list = tools.split(",") if tools else ["slither", "mythril", "echidna"]
+    tools_list = tools.split(",") if tools else ["slither", "mythril", "echidna", "foundry"]
     meta_payload = None
 
     if meta:
