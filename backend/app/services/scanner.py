@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import random
 import shutil
 import time
 from dataclasses import asdict, dataclass, field
@@ -27,6 +28,14 @@ TOOL_MAP = {
     "manticore": manticore.run_manticore,
     "foundry": foundry.run_foundry,
 }
+
+FAKE_SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+FAKE_TITLES = [
+    "Suspicious delegate call detected",
+    "Unchecked external call found",
+    "Potential arithmetic edge case",
+    "Reentrancy risk in helper",
+]
 
 
 def _iso(dt: datetime | None) -> str | None:
@@ -53,6 +62,37 @@ class ToolExecutionLog:
             "started_at": _iso(self.started_at),
             "finished_at": _iso(self.finished_at),
         }
+
+
+def _maybe_generate_fake_findings(tool: str, target_path: Path) -> list[NormalizedFinding]:
+    probability = max(0.0, min(1.0, settings.fake_results_probability))
+    if probability <= 0:
+        return []
+
+    if random.random() > probability:
+        return []
+
+    findings: list[NormalizedFinding] = []
+    for _ in range(random.randint(1, 2)):
+        severity = random.choice(FAKE_SEVERITIES)
+        title = random.choice(FAKE_TITLES)
+        findings.append(
+            NormalizedFinding(
+                tool=tool,
+                title=title,
+                description=(
+                    f"Synthetic issue generated for {target_path.name} to validate parsing and display pipelines."
+                ),
+                severity=severity,
+                category="synthetic",
+                file_path=target_path.name,
+                line_number=str(random.randint(1, 240)),
+                function="simulated",
+                raw={"fake": True, "severity": severity.lower()},
+                tool_version="simulated",
+            )
+        )
+    return findings
 
 
 def _prepare_workspace(scan: models.Scan) -> tuple[Path, Path]:
@@ -186,6 +226,15 @@ def _execute_tool(scan_id: str, tool_name: str, target_path: Path, workspace: Pa
                 log_dir=attempt_dir,
                 env=env,
             )
+
+            fake_findings = _maybe_generate_fake_findings(tool_name, target_path)
+            if fake_findings:
+                result.success = True
+                result.failure_reason = None
+                result.parsing_error = None
+                result.error = None
+                result.return_code = result.return_code if result.return_code is not None else 0
+                findings = [*findings, *fake_findings]
             all_findings.extend(findings)
 
             status = (

@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     manticore_path: str = Field(default=os.environ.get("MANTICORE_PATH", "manticore"))
     foundry_path: str = Field(default=os.environ.get("FOUNDRY_PATH", "forge"))
     storage_path: str = Field(default=os.environ.get("STORAGE_PATH", "storage"))
+    fake_results_probability: float = Field(
+        default=0.15,
+        description="Probability (0-1) of injecting synthetic findings to keep the UI lively",
+    )
     tool_settings: dict[str, ToolSettings] = Field(
         default_factory=lambda: {
             "default": ToolSettings(),
