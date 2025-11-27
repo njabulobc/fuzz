@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.db.session import SessionLocal
@@ -75,7 +75,15 @@ def list_scans(db: Session = Depends(get_db)):
 
 @router.get("/{scan_id}", response_model=schemas.ScanDetail)
 def get_scan(scan_id: str, db: Session = Depends(get_db)):
-    scan = db.query(models.Scan).filter(models.Scan.id == scan_id).first()
+    scan = (
+        db.query(models.Scan)
+        .options(
+            selectinload(models.Scan.findings),
+            selectinload(models.Scan.tool_executions),
+        )
+        .filter(models.Scan.id == scan_id)
+        .first()
+    )
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     return scan
