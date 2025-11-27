@@ -200,18 +200,15 @@ def test_execute_scan_with_fake_results(monkeypatch, tmp_path):
     target = tmp_path / "file.sol"
     target.write_text("contract Test {}")
 
-    fake_findings = [
-        {"tool": "slither", "title": "Fake high", "description": "", "severity": "CRITICAL"},
-        {"tool": "slither", "title": "Fake info", "description": "", "severity": "INFO"},
-    ]
-
     scan = models.Scan(
         id="s1",
         project_id=project.id,
         target=str(target),
         tools=["slither"],
-        fake_results=True,
-        fake_findings=fake_findings,
+        fake_findings=[
+            {"tool": "slither", "title": "Fake high", "description": "", "severity": "CRITICAL"},
+            {"tool": "slither", "title": "Fake info", "description": "", "severity": "INFO"},
+        ],
     )
     db.add(scan)
     db.commit()
@@ -222,19 +219,21 @@ def test_execute_scan_with_fake_results(monkeypatch, tmp_path):
 
     monkeypatch.setattr(scanner, "TOOL_MAP", {"slither": real_tool})
 
+    monkeypatch.setattr(scanner, "_should_inject_fake_results", lambda: True)
+
     scanner.execute_scan(db, scan)
     db.refresh(scan)
 
     findings = db.query(models.Finding).filter(models.Finding.scan_id == scan.id).all()
-    assert len(findings) == len(fake_findings)
+    assert len(findings) == len(scan.fake_findings)
     assert sorted(f.title for f in findings) == ["Fake high", "Fake info"]
 
     tool_runs = db.query(models.ToolExecution).filter_by(scan_id=scan.id).all()
-    assert tool_runs[0].findings_count == len(fake_findings)
+    assert tool_runs[0].findings_count == len(scan.fake_findings)
     assert scan.status == models.ScanStatus.SUCCESS
 
 
-def test_execute_scan_with_fake_findings_ignored_when_flag_false(monkeypatch, tmp_path):
+def test_execute_scan_keeps_real_findings_when_fake_injection_skipped(monkeypatch, tmp_path):
     SessionLocal = setup_sqlite(tmp_path)
     monkeypatch.setattr(scanner, "SessionLocal", SessionLocal)
     scanner.settings.storage_path = str(tmp_path)
@@ -253,7 +252,6 @@ def test_execute_scan_with_fake_findings_ignored_when_flag_false(monkeypatch, tm
         project_id=project.id,
         target=str(target),
         tools=["slither"],
-        fake_results=False,
         fake_findings=[{"tool": "slither", "title": "ignored", "description": "", "severity": "LOW"}],
     )
     db.add(scan)
@@ -277,6 +275,8 @@ def test_execute_scan_with_fake_findings_ignored_when_flag_false(monkeypatch, tm
         ]
 
     monkeypatch.setattr(scanner, "TOOL_MAP", {"slither": real_tool})
+
+    monkeypatch.setattr(scanner, "_should_inject_fake_results", lambda: False)
 
     scanner.execute_scan(db, scan)
     db.refresh(scan)

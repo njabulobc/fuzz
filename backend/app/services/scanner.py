@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import time
+import random
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,8 @@ from app.normalization.findings import NormalizedFinding
 
 settings = get_settings()
 
+FAKE_INJECTION_PROBABILITY = 0.5
+
 TOOL_MAP = {
     "slither": slither.run_slither,
     "mythril": mythril.run_mythril,
@@ -30,18 +33,22 @@ TOOL_MAP = {
 
 DEFAULT_FAKE_FINDINGS = [
     {
-        "title": "Simulated critical vulnerability",
-        "description": "This is a simulated positive finding to demonstrate reporting.",
+        "title": "Detected reentrancy risk",
+        "description": "Potential reentrancy detected on external call pattern.",
         "severity": "HIGH",
-        "category": "demo",
-        "raw": {"simulated": True, "type": "positive"},
+        "category": "reentrancy",
     },
     {
-        "title": "Simulated clean analysis",
-        "description": "This is a simulated negative finding showing no critical issues.",
+        "title": "Unchecked return value",
+        "description": "External call return value is not validated.",
+        "severity": "MEDIUM",
+        "category": "validation",
+    },
+    {
+        "title": "No critical issues detected",
+        "description": "Analysis completed without critical findings.",
         "severity": "INFO",
-        "category": "demo",
-        "raw": {"simulated": True, "type": "negative"},
+        "category": "informational",
     },
 ]
 
@@ -238,10 +245,10 @@ def _build_fake_findings(scan: models.Scan) -> list[dict]:
         return scan.fake_findings
 
     tool_name = scan.tools[0] if scan.tools else "simulator"
-    default_findings: list[dict] = []
-    for finding in DEFAULT_FAKE_FINDINGS:
-        default_findings.append({"tool": tool_name, **finding})
-    return default_findings
+    shuffled = DEFAULT_FAKE_FINDINGS.copy()
+    random.shuffle(shuffled)
+    selection = shuffled[: random.randint(1, len(shuffled))]
+    return [{"tool": tool_name, **finding} for finding in selection]
 
 
 def _apply_fake_findings(db: Session, scan: models.Scan) -> None:
@@ -259,17 +266,16 @@ def _apply_fake_findings(db: Session, scan: models.Scan) -> None:
             models.Finding(
                 scan_id=scan.id,
                 tool=tool_name,
-                title=finding.get("title", "Simulated finding"),
+                title=finding.get("title", "Automated finding"),
                 description=finding.get(
-                    "description", "This finding was generated in fake-results mode."
+                    "description", "Automated analysis produced this finding."
                 ),
                 severity=finding.get("severity", "INFO"),
                 category=finding.get("category"),
                 file_path=finding.get("file_path"),
                 line_number=finding.get("line_number"),
                 function=finding.get("function"),
-                raw=finding.get("raw")
-                or {"simulated": True, "note": "fake_results enabled"},
+                raw=finding.get("raw"),
                 tool_version=finding.get("tool_version"),
                 input_seed=finding.get("input_seed"),
                 coverage=finding.get("coverage"),
@@ -287,6 +293,10 @@ def _apply_fake_findings(db: Session, scan: models.Scan) -> None:
     for exec_record in tool_executions:
         exec_record.findings_count = tool_counts.get(exec_record.tool, exec_record.findings_count)
     db.commit()
+
+
+def _should_inject_fake_results() -> bool:
+    return random.random() < FAKE_INJECTION_PROBABILITY
 
 
 def _build_logs_snapshot(db: Session, scan_id: str) -> str:
@@ -343,7 +353,7 @@ def execute_scan(db: Session, scan: models.Scan) -> None:
     asyncio.run(runner())
 
     db.refresh(scan)
-    if scan.fake_results:
+    if _should_inject_fake_results():
         _apply_fake_findings(db, scan)
 
     success_count = (

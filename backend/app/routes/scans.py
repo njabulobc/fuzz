@@ -24,16 +24,11 @@ def _create_scan(
     project_id: str,
     target: str,
     tools: list[str],
-    fake_results: bool = False,
-    fake_findings: list[dict] | None = None,
 ):
-    findings_payload = fake_findings if fake_results else None
     scan = models.Scan(
         project_id=project_id,
         target=target,
         tools=tools,
-        fake_results=fake_results,
-        fake_findings=findings_payload,
         status=models.ScanStatus.PENDING,
     )
     db.add(scan)
@@ -86,18 +81,11 @@ def start_scan(payload: schemas.ScanRequest, db: Session = Depends(get_db)):
                 db.commit()
                 db.refresh(project)
 
-    fake_findings = (
-        [finding.model_dump() for finding in payload.fake_findings]
-        if payload.fake_findings
-        else None
-    )
     scan = _create_scan(
         db,
         project.id,
         payload.target,
         payload.tools,
-        payload.fake_results,
-        fake_findings,
     )
     return scan
 
@@ -122,18 +110,11 @@ def quick_scan(payload: schemas.QuickScanRequest, db: Session = Depends(get_db))
             db.commit()
             db.refresh(project)
 
-    fake_findings = (
-        [finding.model_dump() for finding in payload.fake_findings]
-        if payload.fake_findings
-        else None
-    )
     scan = _create_scan(
         db,
         project.id,
         payload.target,
         payload.tools,
-        payload.fake_results,
-        fake_findings,
     )
 
     return schemas.QuickScanResponse(project_id=project.id, scan_id=scan.id)
