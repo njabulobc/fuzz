@@ -73,6 +73,9 @@ class ScanRequest(BaseModel):
             else:
                 raise ValueError("Provide project_path when creating a project")
 
+        if self.fake_findings and not self.fake_results:
+            raise ValueError("fake_results must be true when providing fake_findings")
+
         return self
 
 
@@ -88,6 +91,12 @@ class QuickScanRequest(BaseModel):
     tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna", "foundry"])
     fake_results: bool = False
     fake_findings: Optional[List[FakeFinding]] = None
+
+    @model_validator(mode="after")
+    def validate_fake_findings(self):
+        if self.fake_findings and not self.fake_results:
+            raise ValueError("fake_results must be true when providing fake_findings")
+        return self
 
 
 class ScanRead(BaseModel):

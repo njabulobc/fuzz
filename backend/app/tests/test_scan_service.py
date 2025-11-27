@@ -232,3 +232,59 @@ def test_execute_scan_with_fake_results(monkeypatch, tmp_path):
     tool_runs = db.query(models.ToolExecution).filter_by(scan_id=scan.id).all()
     assert tool_runs[0].findings_count == len(fake_findings)
     assert scan.status == models.ScanStatus.SUCCESS
+
+
+def test_execute_scan_with_fake_findings_ignored_when_flag_false(monkeypatch, tmp_path):
+    SessionLocal = setup_sqlite(tmp_path)
+    monkeypatch.setattr(scanner, "SessionLocal", SessionLocal)
+    scanner.settings.storage_path = str(tmp_path)
+    monkeypatch.setattr(scanner.settings, "tool_settings", {"default": ToolSettings(retries=0)})
+
+    db = SessionLocal()
+    project = models.Project(id="p1", name="proj", path=str(tmp_path))
+    db.add(project)
+    db.commit()
+
+    target = tmp_path / "file.sol"
+    target.write_text("contract Test {}")
+
+    scan = models.Scan(
+        id="s1",
+        project_id=project.id,
+        target=str(target),
+        tools=["slither"],
+        fake_results=False,
+        fake_findings=[{"tool": "slither", "title": "ignored", "description": "", "severity": "LOW"}],
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
+
+    def real_tool(target, config=None, workdir=None, log_dir=None, env=None):  # noqa: ARG001
+        return make_result(tmp_path), [
+            NormalizedFinding(
+                tool="slither",
+                title="real",
+                description="desc",
+                severity="HIGH",
+                category="reentrancy",
+                file_path="file.sol",
+                line_number="1",
+                function="f",
+                raw={"a": 1},
+                tool_version="1.0.0",
+            )
+        ]
+
+    monkeypatch.setattr(scanner, "TOOL_MAP", {"slither": real_tool})
+
+    scanner.execute_scan(db, scan)
+    db.refresh(scan)
+
+    findings = db.query(models.Finding).filter(models.Finding.scan_id == scan.id).all()
+    assert len(findings) == 1
+    assert findings[0].title == "real"
+
+    tool_runs = db.query(models.ToolExecution).filter_by(scan_id=scan.id).all()
+    assert tool_runs[0].findings_count == 1
+    assert scan.status == models.ScanStatus.SUCCESS

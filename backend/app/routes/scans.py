@@ -27,12 +27,13 @@ def _create_scan(
     fake_results: bool = False,
     fake_findings: list[dict] | None = None,
 ):
+    findings_payload = fake_findings if fake_results else None
     scan = models.Scan(
         project_id=project_id,
         target=target,
         tools=tools,
         fake_results=fake_results,
-        fake_findings=fake_findings,
+        fake_findings=findings_payload,
         status=models.ScanStatus.PENDING,
     )
     db.add(scan)
