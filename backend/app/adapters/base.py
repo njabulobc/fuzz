@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -10,6 +10,9 @@ class ToolResult:
     success: bool
     output: str
     error: str | None = None
+    coverage: Optional[float] = None
+    budget_seconds: Optional[float] = None
+    properties: List[str] | None = None
 
 
 def run_command(cmd: List[str], timeout: int = 600) -> ToolResult:

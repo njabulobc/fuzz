@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.adapters import slither, mythril, echidna, manticore
+from app.adapters.base import ToolResult
 from app.normalization.findings import NormalizedFinding
 from app.config import get_settings
 
@@ -32,6 +33,9 @@ class ToolExecutionLog:
     errors: list[str] = field(default_factory=list)
     findings_count: int = 0
     last_output: str | None = None
+    coverage: float | None = None
+    budget_seconds: float | None = None
+    properties: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {
@@ -78,6 +82,11 @@ def execute_scan(db: Session, scan: models.Scan) -> None:
                     log.status = "completed"
                     log.success = True
                     log.findings_count = len(findings)
+                    log.coverage = getattr(result, "coverage", None)
+                    log.budget_seconds = getattr(result, "budget_seconds", None)
+                    properties = getattr(result, "properties", None)
+                    if properties:
+                        log.properties = properties
                     all_findings.extend(findings)
                     successful_tools += 1
                     break
