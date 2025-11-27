@@ -71,15 +71,22 @@ type Finding = {
   function?: string
 }
 type ScanDetail = ScanSummary & { findings: Finding[] }
+type QuickScanResult = { project_id: string; scan_id: string }
 
 type Toast = { tone: 'info' | 'success' | 'error'; message: string }
 
 const TOOLBOX = ['slither', 'mythril', 'echidna']
 const PROJECT_FORM_STORAGE_KEY = 'projectForm'
 const SCAN_FORM_STORAGE_KEY = 'scanForm'
+const QUICK_SCAN_FORM_STORAGE_KEY = 'quickScanForm'
 const SELECTED_SCAN_STORAGE_KEY = 'selectedScanId'
 const DEFAULT_PROJECT_FORM = { name: '', path: '', meta: '' }
 const DEFAULT_SCAN_FORM = { project_id: '', target: 'contracts/SampleToken.sol', tools: [...TOOLBOX] }
+const DEFAULT_QUICK_SCAN_FORM = {
+  project: { ...DEFAULT_PROJECT_FORM },
+  target: DEFAULT_SCAN_FORM.target,
+  tools: [...TOOLBOX],
+}
 
 const safeLoadJson = <T,>(value: string | null, fallback: T): T => {
   if (!value) return fallback
@@ -102,6 +109,7 @@ const App: React.FC = () => {
   const [loadingFindings, setLoadingFindings] = useState(false)
   const [projectForm, setProjectForm] = useState(DEFAULT_PROJECT_FORM)
   const [scanForm, setScanForm] = useState(DEFAULT_SCAN_FORM)
+  const [quickForm, setQuickForm] = useState(DEFAULT_QUICK_SCAN_FORM)
   const [toast, setToast] = useState<Toast | null>(null)
 
   const showToast = (toast: Toast) => {
@@ -194,6 +202,22 @@ const App: React.FC = () => {
     }
   }
 
+  const handleQuickScan = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const meta = quickForm.project.meta ? JSON.parse(quickForm.project.meta) : undefined
+      const payload = { project: { ...quickForm.project, meta }, target: quickForm.target, tools: quickForm.tools }
+      const res = await axios.post<QuickScanResult>(`${API_URL}/scans/quick`, payload)
+      showToast({ tone: 'success', message: 'Project provisioned and scan started.' })
+      setSelectedScanId(res.data.scan_id)
+      loadProjects()
+      loadScans()
+      loadScanDetail(res.data.scan_id)
+    } catch (error) {
+      showToast({ tone: 'error', message: 'Unable to quick scan. Check project details & target.' })
+    }
+  }
+
   const handleCopySample = async () => {
     try {
       await navigator.clipboard.writeText(SAMPLE_CONTRACT)
@@ -217,10 +241,12 @@ const App: React.FC = () => {
   useEffect(() => {
     const storedProjectForm = safeLoadJson(localStorage.getItem(PROJECT_FORM_STORAGE_KEY), DEFAULT_PROJECT_FORM)
     const storedScanForm = safeLoadJson(localStorage.getItem(SCAN_FORM_STORAGE_KEY), DEFAULT_SCAN_FORM)
+    const storedQuickForm = safeLoadJson(localStorage.getItem(QUICK_SCAN_FORM_STORAGE_KEY), DEFAULT_QUICK_SCAN_FORM)
     const storedSelectedScan = localStorage.getItem(SELECTED_SCAN_STORAGE_KEY)
 
     setProjectForm(storedProjectForm)
     setScanForm(storedScanForm)
+    setQuickForm(storedQuickForm)
     if (storedSelectedScan) setSelectedScanId(storedSelectedScan)
   }, [])
 
@@ -231,6 +257,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(SCAN_FORM_STORAGE_KEY, JSON.stringify(scanForm))
   }, [scanForm])
+
+  useEffect(() => {
+    localStorage.setItem(QUICK_SCAN_FORM_STORAGE_KEY, JSON.stringify(quickForm))
+  }, [quickForm])
 
   useEffect(() => {
     if (selectedScanId) {
@@ -468,6 +498,99 @@ const App: React.FC = () => {
             </div>
           </section>
         </div>
+
+        <section className={`${cardClass} mt-5`}>
+          <h2 className="text-lg font-semibold text-slate-900">Quick scan</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Create a project and start a scan in one go. Use this when onboarding a new codebase.
+          </p>
+
+          <form onSubmit={handleQuickScan} className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <label className={labelClass}>Project name</label>
+              <input
+                required
+                value={quickForm.project.name}
+                onChange={(e) =>
+                  setQuickForm((prev) => ({ ...prev, project: { ...prev.project, name: e.target.value } }))
+                }
+                placeholder="ex: onboarding-audit"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className={labelClass}>Project path</label>
+              <input
+                required
+                value={quickForm.project.path}
+                onChange={(e) =>
+                  setQuickForm((prev) => ({ ...prev, project: { ...prev.project, path: e.target.value } }))
+                }
+                placeholder="/workspace/contracts"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="grid gap-2 md:col-span-2">
+              <label className={labelClass}>Meta (JSON optional)</label>
+              <textarea
+                value={quickForm.project.meta}
+                onChange={(e) =>
+                  setQuickForm((prev) => ({ ...prev, project: { ...prev.project, meta: e.target.value } }))
+                }
+                placeholder='{"network": "local"}'
+                rows={2}
+                className={`${inputClass} resize-y`}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className={labelClass}>Target path</label>
+              <input
+                required
+                value={quickForm.target}
+                onChange={(e) => setQuickForm((prev) => ({ ...prev, target: e.target.value }))}
+                placeholder="contracts/SampleToken.sol"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className={labelClass}>Tools</label>
+              <div className="flex flex-wrap gap-2">
+                {TOOLBOX.map((tool) => {
+                  const isSelected = quickForm.tools.includes(tool)
+                  return (
+                    <button
+                      type="button"
+                      key={tool}
+                      onClick={() =>
+                        setQuickForm((prev) => ({
+                          ...prev,
+                          tools: isSelected ? prev.tools.filter((t) => t !== tool) : [...prev.tools, tool],
+                        }))
+                      }
+                      className={`${
+                        isSelected
+                          ? 'border-sky-400 bg-sky-50 text-sky-700'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      } rounded-full border px-3 py-1 text-xs font-semibold transition`}
+                    >
+                      {tool}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="md:col-span-2 flex justify-end gap-3">
+              <button type="submit" className={buttonPrimary}>
+                Provision project & start scan
+              </button>
+            </div>
+          </form>
+        </section>
 
         <section className={`${cardClass} mt-5`}>
           <div className="flex flex-wrap items-center justify-between gap-3">

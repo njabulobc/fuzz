@@ -27,6 +27,18 @@ class ScanRequest(BaseModel):
     tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna"])
 
 
+class QuickScanProject(BaseModel):
+    name: str
+    path: str
+    meta: Optional[dict] = None
+
+
+class QuickScanRequest(BaseModel):
+    project: QuickScanProject
+    target: str
+    tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna"])
+
+
 class ScanRead(BaseModel):
     id: str
     project_id: str
@@ -60,3 +72,8 @@ class FindingRead(BaseModel):
 
 class ScanDetail(ScanRead):
     findings: List[FindingRead]
+
+
+class QuickScanResponse(BaseModel):
+    project_id: str
+    scan_id: str

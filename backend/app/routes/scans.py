@@ -19,16 +19,11 @@ def get_db():
         db.close()
 
 
-@router.post("", response_model=schemas.ScanRead)
-def start_scan(payload: schemas.ScanRequest, db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter(models.Project.id == payload.project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
+def _create_scan(db: Session, project_id: str, target: str, tools: list[str]):
     scan = models.Scan(
-        project_id=payload.project_id,
-        target=payload.target,
-        tools=payload.tools,
+        project_id=project_id,
+        target=target,
+        tools=tools,
         status=models.ScanStatus.PENDING,
     )
     db.add(scan)
@@ -36,6 +31,41 @@ def start_scan(payload: schemas.ScanRequest, db: Session = Depends(get_db)):
     db.refresh(scan)
     run_scan_task.delay(scan.id)
     return scan
+
+
+@router.post("", response_model=schemas.ScanRead)
+def start_scan(payload: schemas.ScanRequest, db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.id == payload.project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    scan = _create_scan(db, payload.project_id, payload.target, payload.tools)
+    return scan
+
+
+@router.post("/quick", response_model=schemas.QuickScanResponse)
+def quick_scan(payload: schemas.QuickScanRequest, db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.name == payload.project.name).first()
+
+    if not project:
+        project = models.Project(
+            name=payload.project.name,
+            path=payload.project.path,
+            meta=payload.project.meta,
+        )
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+    else:
+        if project.path != payload.project.path or project.meta != payload.project.meta:
+            project.path = payload.project.path
+            project.meta = payload.project.meta
+            db.commit()
+            db.refresh(project)
+
+    scan = _create_scan(db, project.id, payload.target, payload.tools)
+
+    return schemas.QuickScanResponse(project_id=project.id, scan_id=scan.id)
 
 
 @router.get("", response_model=list[schemas.ScanRead])
