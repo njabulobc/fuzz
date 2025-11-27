@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from typing import List
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
+
+
+def _split_env_list(value: str | None) -> List[str]:
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
 class Settings(BaseSettings):
@@ -18,6 +24,20 @@ class Settings(BaseSettings):
     mythril_path: str = Field(default=os.environ.get("MYTHRIL_PATH", "myth"))
     echidna_path: str = Field(default=os.environ.get("ECHIDNA_PATH", "echidna-test"))
     manticore_path: str = Field(default=os.environ.get("MANTICORE_PATH", "manticore"))
+    echidna_config_path: str | None = Field(
+        default=os.environ.get("ECHIDNA_CONFIG_PATH")
+    )
+    echidna_seed_corpus: str | None = Field(
+        default=os.environ.get("ECHIDNA_SEED_CORPUS")
+    )
+    echidna_test_limit: int | None = Field(default=None)
+    echidna_property_filters: List[str] = Field(
+        default_factory=lambda: _split_env_list(os.environ.get("ECHIDNA_PROPERTIES"))
+    )
+    echidna_extra_args: List[str] = Field(
+        default_factory=lambda: _split_env_list(os.environ.get("ECHIDNA_EXTRA_ARGS"))
+    )
+    fuzz_budget_seconds: int | None = Field(default=None)
     default_timeout_seconds: int = 600
     tool_max_retries: int = 1
 

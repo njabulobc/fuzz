@@ -26,7 +26,9 @@ class ProjectRead(ProjectCreate):
 class ScanRequest(BaseModel):
     project_id: str
     target: str
-    tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna"])
+    tools: List[str] = Field(
+        default_factory=lambda: ["slither", "mythril", "echidna", "manticore"]
+    )
 
 
 class QuickScanProject(BaseModel):
@@ -38,7 +40,9 @@ class QuickScanProject(BaseModel):
 class QuickScanRequest(BaseModel):
     project: QuickScanProject
     target: str
-    tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna"])
+    tools: List[str] = Field(
+        default_factory=lambda: ["slither", "mythril", "echidna", "manticore"]
+    )
 
 
 class ScanRead(BaseModel):

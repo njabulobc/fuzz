@@ -104,3 +104,40 @@ def test_execute_scan_is_idempotent(monkeypatch, tmp_path):
     scanner.execute_scan(db, scan)
 
     assert db.calls == 0, "should not mutate already completed scans"
+
+
+def test_execute_scan_records_fuzz_metrics(monkeypatch, tmp_path):
+    project = models.Project(id="p1", name="proj", path=str(tmp_path))
+    scan = models.Scan(id="s1", project_id="p1", target="/tmp/file.sol", tools=["echidna"])
+
+    def fake_tool(target, timeout=None):  # noqa: ARG001 - test helper
+        return scanner.ToolResult(
+            success=True,
+            output="",
+            coverage=55.5,
+            budget_seconds=20,
+            properties=["propA"],
+        ), []
+
+    monkeypatch.setattr(scanner, "TOOL_MAP", {"echidna": fake_tool})
+
+    class DummyDB:
+        def __init__(self):
+            self.calls = 0
+
+        def commit(self):
+            self.calls += 1
+
+        def refresh(self, obj):
+            pass
+
+        def add(self, obj):
+            pass
+
+    db = DummyDB()
+    scanner.execute_scan(db, scan)
+
+    logs = scanner.json.loads(scan.logs)[0]
+    assert logs["coverage"] == 55.5
+    assert logs["budget_seconds"] == 20
+    assert logs["properties"] == ["propA"]
