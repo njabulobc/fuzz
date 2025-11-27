@@ -1,10 +1,11 @@
 
-#schemas.py
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel, Field, model_validator
 
 from app.models import ScanStatus, ToolExecutionStatus
 
@@ -24,9 +25,37 @@ class ProjectRead(ProjectCreate):
 
 
 class ScanRequest(BaseModel):
-    project_id: str
-    target: str
+    project_id: str | None = None
+    project_name: str | None = None
+    project_path: str | None = None
+    target: str | None = None
     tools: List[str] = Field(default_factory=lambda: ["slither", "mythril", "echidna"])
+    scan_name: str | None = None
+    log_file: str | None = None
+    chain: str | None = None
+    meta: Optional[dict] = None
+
+    @model_validator(mode="after")
+    def ensure_project_and_target(self):
+        if not self.project_id and not (self.project_name or self.scan_name):
+            raise ValueError("Provide either project_id or project_name/scan_name")
+
+        if not self.project_name:
+            self.project_name = self.scan_name
+
+        if not self.target:
+            self.target = self.log_file
+
+        if not self.target:
+            raise ValueError("Provide a target or log_file to scan")
+
+        if not self.project_id and not self.project_path:
+            if self.log_file:
+                self.project_path = str(Path(self.log_file).parent or ".")
+            else:
+                raise ValueError("Provide project_path when creating a project")
+
+        return self
 
 
 class QuickScanProject(BaseModel):
