@@ -72,7 +72,41 @@ type Finding = {
   line_number?: string
   function?: string
 }
-type ScanDetail = ScanSummary & { findings: Finding[] }
+type ToolExecution = {
+  id: string
+  scan_id: string
+  tool: string
+  status: string
+  attempt: number
+  started_at?: string
+  finished_at?: string
+  duration_seconds?: number
+  command?: string[]
+  exit_code?: number
+  stdout_path?: string
+  stderr_path?: string
+  findings_count: number
+  failure_reason?: string
+  parsing_error?: string
+}
+type ToolLogEntry = {
+  tool: string
+  status?: string
+  attempts?: number
+  success?: boolean
+  started_at?: string
+  finished_at?: string
+  duration_seconds?: number
+  errors?: string[]
+  parsing_error?: string | null
+  stdout_path?: string
+  stderr_path?: string
+  findings_count?: number
+  command?: string[]
+  exit_code?: number
+  environment?: Record<string, string>
+}
+type ScanDetail = ScanSummary & { findings: Finding[]; tool_executions: ToolExecution[] }
 type QuickScanResult = { project_id: string; scan_id: string }
 
 type Toast = { tone: 'info' | 'success' | 'error'; message: string }
@@ -295,6 +329,30 @@ const App: React.FC = () => {
   }, [selectedScanId, loadScans, loadScanDetail])
 
   const selectedFindings = useMemo(() => scanDetail?.findings ?? [], [scanDetail])
+  const selectedScan = useMemo(() => scans.find((scan) => scan.id === selectedScanId), [scans, selectedScanId])
+  const selectedProjectName = useMemo(() => {
+    const project = projects.find((p) => p.id === selectedScan?.project_id)
+    return project?.name ?? selectedScan?.project_id ?? ''
+  }, [projects, selectedScan])
+
+  const toolExecutions = useMemo(() => scanDetail?.tool_executions ?? [], [scanDetail])
+  const structuredLogs = useMemo(() => {
+    if (!scanDetail?.logs) return [] as ToolLogEntry[]
+    try {
+      const parsed = JSON.parse(scanDetail.logs) as ToolLogEntry[]
+      return parsed
+    } catch (error) {
+      console.warn('Could not parse logs', error)
+      return [] as ToolLogEntry[]
+    }
+  }, [scanDetail])
+
+  const findingsBySeverity = useMemo(() => {
+    return selectedFindings.reduce<Record<string, number>>((acc, finding) => {
+      acc[finding.severity] = (acc[finding.severity] ?? 0) + 1
+      return acc
+    }, {})
+  }, [selectedFindings])
 
   const badgeClass = (status: string) => {
     switch (status) {
@@ -308,6 +366,22 @@ const App: React.FC = () => {
         return 'bg-slate-100 text-slate-700 border-slate-200'
     }
   }
+
+  const toolStatusClass = (status: string) => {
+    switch (status) {
+      case 'SUCCEEDED':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-100'
+      case 'RUNNING':
+      case 'RETRYING':
+        return 'bg-sky-50 text-sky-700 border-sky-100'
+      case 'FAILED':
+        return 'bg-rose-50 text-rose-700 border-rose-100'
+      default:
+        return 'bg-slate-100 text-slate-700 border-slate-200'
+    }
+  }
+
+  const formatDate = (value?: string) => (value ? new Date(value).toLocaleString() : '—')
 
   const cardClass = 'bg-white border border-slate-200 shadow-card rounded-xl p-6'
   const inputClass =
@@ -652,7 +726,12 @@ const App: React.FC = () => {
           <section className={`${cardClass} mt-5`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Findings for scan {selectedScanId}</h2>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Findings for scan {selectedScanId}
+                  {selectedProjectName && (
+                    <span className="ml-2 text-sm font-normal text-slate-600">({selectedProjectName})</span>
+                  )}
+                </h2>
                 <p className="text-sm text-slate-600">
                   Severity and tool filters are available below. {loadingFindings && 'Refreshing findings…'}
                 </p>
@@ -662,10 +741,117 @@ const App: React.FC = () => {
               </button>
             </div>
 
+            {scanDetail && (
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
+                  <div className="mt-1 text-lg font-semibold text-slate-900">{scanDetail.status}</div>
+                  <p className="text-xs text-slate-600">Started {formatDate(scanDetail.started_at)} · Finished {formatDate(scanDetail.finished_at)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Findings</div>
+                  <div className="mt-1 text-lg font-semibold text-slate-900">{selectedFindings.length}</div>
+                  <p className="text-xs text-slate-600">
+                    {Object.entries(findingsBySeverity)
+                      .map(([severity, count]) => `${count} ${severity.toLowerCase()}`)
+                      .join(' · ') || 'No findings reported yet.'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tool coverage</div>
+                  <div className="mt-1 text-lg font-semibold text-slate-900">{toolExecutions.length} tools</div>
+                  <p className="text-xs text-slate-600">
+                    {toolExecutions.filter((t) => t.status === 'SUCCEEDED').length} succeeded ·{' '}
+                    {toolExecutions.filter((t) => t.status === 'FAILED').length} failed
+                  </p>
+                </div>
+              </div>
+            )}
+
             <FindingsTable findings={selectedFindings} />
 
-            {scanDetail?.logs && (
-              <div className="mt-4">
+            {toolExecutions.length > 0 && (
+              <div className="mt-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-base font-semibold text-slate-900">Tool execution report</h3>
+                  <p className="text-xs text-slate-600">Attempts and timings help explain why a run succeeded or failed.</p>
+                </div>
+                <div className="mt-2 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Tool</th>
+                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Attempts</th>
+                        <th className="px-3 py-2">Findings</th>
+                        <th className="px-3 py-2">Duration (s)</th>
+                        <th className="px-3 py-2">Exit code</th>
+                        <th className="px-3 py-2">Log files</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {toolExecutions.map((exec) => (
+                        <tr key={exec.id} className="bg-white">
+                          <td className="px-3 py-3 font-semibold text-slate-800">{exec.tool}</td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase ${toolStatusClass(exec.status)}`}>
+                              {exec.status}
+                            </span>
+                            {exec.failure_reason && (
+                              <div className="mt-1 text-xs text-rose-700">{exec.failure_reason}</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-slate-700">{exec.attempt}</td>
+                          <td className="px-3 py-3 text-slate-700">{exec.findings_count}</td>
+                          <td className="px-3 py-3 text-slate-700">{exec.duration_seconds ? exec.duration_seconds.toFixed(1) : '—'}</td>
+                          <td className="px-3 py-3 text-slate-700">{exec.exit_code ?? '—'}</td>
+                          <td className="px-3 py-3 text-slate-600">
+                            <div className="flex flex-col text-xs">
+                              <span>stdout: {exec.stdout_path ?? 'n/a'}</span>
+                              <span>stderr: {exec.stderr_path ?? 'n/a'}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {structuredLogs.length > 0 && (
+              <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-slate-900">Worker feedback</h3>
+                  <span className="text-xs text-slate-600">Parsed from the scan logs for quick triage.</span>
+                </div>
+                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                  {structuredLogs.map((log, idx) => (
+                    <li key={`${log.tool}-${log.started_at ?? idx}`} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-semibold text-slate-900">{log.tool}</div>
+                        {log.status && (
+                          <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${toolStatusClass(log.status)}`}>
+                            {log.status}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Attempts: {log.attempts ?? 0} · Findings: {log.findings_count ?? 0} · Duration: {log.duration_seconds ? `${log.duration_seconds.toFixed(1)}s` : 'n/a'}
+                      </p>
+                      {log.errors?.length ? (
+                        <p className="text-xs text-rose-700">Errors: {log.errors.join('; ')}</p>
+                      ) : (
+                        <p className="text-xs text-slate-600">No parser errors. Exit code: {log.exit_code ?? 'n/a'}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {scanDetail?.logs && structuredLogs.length === 0 && (
+              <div className="mt-6">
                 <h3 className="mb-2 text-base font-semibold text-slate-900">Worker feedback</h3>
                 <pre className="max-h-64 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-100">{scanDetail.logs}</pre>
               </div>

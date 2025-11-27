@@ -10,10 +10,28 @@ type Props = {
     category?: string
     file_path?: string
     line_number?: string
+    function?: string
   }[]
 }
 
 const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']
+
+const severityGuidance: Record<string, string> = {
+  CRITICAL: 'Critical issues frequently indicate exploits that put funds or ownership at direct risk.',
+  HIGH: 'High severity items can block production deploys and warrant immediate review.',
+  MEDIUM: 'Medium issues may be contextual—review and triage based on business impact.',
+  LOW: 'Low severity findings are often hygiene improvements or informational signals.',
+  INFO: 'Informational items provide additional context from the tool output.',
+}
+
+const buildExplanation = (finding: Props['findings'][number]) => {
+  const location = [finding.file_path, finding.line_number].filter(Boolean).join(': ') || 'an unknown location'
+  const category = finding.category ? `Category: ${finding.category}.` : ''
+  const functionContext = finding.function ? `Observed near function ${finding.function}.` : ''
+  const impact = severityGuidance[finding.severity] ?? 'Review the finding and the raw output for additional context.'
+
+  return `${finding.tool} flagged a ${finding.severity.toLowerCase()} issue at ${location}. ${category} ${functionContext} ${impact}`
+}
 
 export const FindingsTable: React.FC<Props> = ({ findings }) => {
   const [severity, setSeverity] = useState<string>('')
@@ -72,7 +90,8 @@ export const FindingsTable: React.FC<Props> = ({ findings }) => {
               <th className="px-3 py-2">Severity</th>
               <th className="px-3 py-2">Tool</th>
               <th className="px-3 py-2">Category</th>
-              <th className="px-3 py-2">Title</th>
+              <th className="px-3 py-2">Title & description</th>
+              <th className="px-3 py-2">Why it matters</th>
               <th className="px-3 py-2">Location</th>
             </tr>
           </thead>
@@ -90,7 +109,11 @@ export const FindingsTable: React.FC<Props> = ({ findings }) => {
                 </td>
                 <td className="px-3 py-3 font-semibold text-slate-800">{f.tool}</td>
                 <td className="px-3 py-3 text-slate-700">{f.category ?? '—'}</td>
-                <td className="px-3 py-3 text-slate-900">{f.title}</td>
+                <td className="px-3 py-3 text-slate-900">
+                  <div className="font-semibold text-slate-900">{f.title}</div>
+                  <p className="mt-1 text-sm text-slate-600">{f.description}</p>
+                </td>
+                <td className="px-3 py-3 text-slate-700">{buildExplanation(f)}</td>
                 <td className="px-3 py-3 text-slate-600">
                   {f.file_path ?? 'unknown'}
                   {f.line_number ? `:${f.line_number}` : ''}
