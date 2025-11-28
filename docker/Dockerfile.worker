@@ -17,7 +17,7 @@ ENV PATH="/root/.foundry/bin:${PATH}"
 # -------------------------------------------
 # Install Slither and Mythril
 # -------------------------------------------
-RUN pip install --no-cache-dir slither-analyzer mythril
+RUN pip install --no-cache-dir slither-analyzer
 
 # -------------------------------------------
 # Install solc (static binary)
