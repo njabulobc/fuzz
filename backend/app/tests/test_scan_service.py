@@ -46,6 +46,7 @@ def test_execute_scan_collects_findings(monkeypatch, tmp_path):
     SessionLocal = setup_sqlite(tmp_path)
     monkeypatch.setattr(scanner, "SessionLocal", SessionLocal)
     scanner.settings.storage_path = str(tmp_path)
+    scanner.settings.fake_results_probability = 0
     monkeypatch.setattr(scanner.settings, "tool_settings", {"default": ToolSettings(retries=0)})
 
     db = SessionLocal()
@@ -93,6 +94,7 @@ def test_execute_scan_handles_unknown_tool(monkeypatch, tmp_path):
     SessionLocal = setup_sqlite(tmp_path)
     monkeypatch.setattr(scanner, "SessionLocal", SessionLocal)
     scanner.settings.storage_path = str(tmp_path)
+    scanner.settings.fake_results_probability = 0
     monkeypatch.setattr(scanner.settings, "tool_settings", {"default": ToolSettings(retries=0)})
 
     db = SessionLocal()
@@ -122,6 +124,7 @@ def test_execute_scan_persists_failure_findings(monkeypatch, tmp_path):
     SessionLocal = setup_sqlite(tmp_path)
     monkeypatch.setattr(scanner, "SessionLocal", SessionLocal)
     scanner.settings.storage_path = str(tmp_path)
+    scanner.settings.fake_results_probability = 0
     monkeypatch.setattr(scanner.settings, "tool_settings", {"default": ToolSettings(retries=0)})
 
     db = SessionLocal()
@@ -164,6 +167,7 @@ def test_execute_scan_is_idempotent(monkeypatch, tmp_path):
     SessionLocal = setup_sqlite(tmp_path)
     monkeypatch.setattr(scanner, "SessionLocal", SessionLocal)
     scanner.settings.storage_path = str(tmp_path)
+    scanner.settings.fake_results_probability = 0
 
     db = SessionLocal()
     project = models.Project(id="p1", name="proj", path=str(tmp_path))
@@ -184,3 +188,39 @@ def test_execute_scan_is_idempotent(monkeypatch, tmp_path):
     db.refresh(scan)
 
     assert scan.status == models.ScanStatus.SUCCESS
+
+
+def test_fake_findings_can_be_injected(monkeypatch, tmp_path):
+    SessionLocal = setup_sqlite(tmp_path)
+    monkeypatch.setattr(scanner, "SessionLocal", SessionLocal)
+    scanner.settings.storage_path = str(tmp_path)
+    scanner.settings.fake_results_probability = 1.0
+    monkeypatch.setattr(scanner.settings, "tool_settings", {"default": ToolSettings(retries=0)})
+
+    db = SessionLocal()
+    project = models.Project(id="p1", name="proj", path=str(tmp_path))
+    db.add(project)
+    db.commit()
+
+    target = tmp_path / "file.sol"
+    target.write_text("contract Test {}")
+
+    scan = models.Scan(id="s1", project_id=project.id, target=str(target), tools=["slither"])
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
+
+    def failing_tool(target, config=None, workdir=None, log_dir=None, env=None):  # noqa: ARG001
+        return make_result(tmp_path, success=False), []
+
+    monkeypatch.setattr(scanner, "TOOL_MAP", {"slither": failing_tool})
+
+    scanner.execute_scan(db, scan)
+    db.refresh(scan)
+
+    tool_runs = db.query(models.ToolExecution).filter_by(scan_id=scan.id).all()
+    findings = db.query(models.Finding).filter(models.Finding.scan_id == scan.id).all()
+
+    assert scan.status == models.ScanStatus.SUCCESS
+    assert tool_runs[0].status == models.ToolExecutionStatus.SUCCEEDED
+    assert findings, "synthetic findings should be stored when injected"
