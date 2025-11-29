@@ -17,7 +17,7 @@ ENV PATH="/root/.foundry/bin:${PATH}"
 # -------------------------------------------
 # Install Slither and Mythril
 # -------------------------------------------
-RUN pip install --no-cache-dir slither-analyzer mythril
+RUN pip install --no-cache-dir slither-analyzer
 
 # -------------------------------------------
 # Install solc (static binary)
@@ -27,12 +27,8 @@ RUN wget https://github.com/ethereum/solidity/releases/download/v0.8.23/solc-sta
     && chmod +x /usr/local/bin/solc
 
 # -------------------------------------------
-# Install Echidna (Haskell)
-# -------------------------------------------
-RUN apt-get update && apt-get install -y haskell-stack \
-    && git clone https://github.com/crytic/echidna.git \
-    && cd echidna && stack install
 
+# -------------------------------------------
 # Add stack binaries to PATH
 ENV PATH="/root/.local/bin:${PATH}"
 

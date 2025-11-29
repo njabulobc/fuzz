@@ -60,6 +60,11 @@ services:
       redis:
         condition: service_healthy
 
+  echidna:
+      image: trailofbits/echidna:latest
+      volumes:
+        - "C:\\Users\\njabulobc\\Desktop\\fuzz\\contracts\\:/contracts"
+
   web:
     build:
       context: .
@@ -74,3 +79,4 @@ services:
     ports:
       - "3000:3000"
       
+  

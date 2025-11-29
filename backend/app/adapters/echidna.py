@@ -20,9 +20,33 @@ def run_echidna(
     log_dir: Path,
     env: dict[str, str],
 ) -> tuple[ToolResult, List[NormalizedFinding]]:
-    cmd = [settings.echidna_path, target, "--format", "json"]
+    """
+    Execute Echidna using the official trailofbits/echidna Docker image.
+
+    We no longer call echidna-test installed on the host since the worker
+    container does NOT include Echidna. Instead we call:
+
+        docker run --rm -v <target>:<target> trailofbits/echidna echidna-test ...
+
+    The output is still JSON, so the existing parsing logic continues to work.
+    """
+
+    abs_target = str(Path(target).resolve())
+
+    # Build docker command
+    cmd = [
+        "docker", "run", "--rm",
+        "-v", f"{abs_target}:{abs_target}",
+        "trailofbits/echidna",
+        "echidna-test", abs_target,
+        "--format", "json",
+    ]
+
+    # Add fuzz duration if configured
     if config.fuzz_duration_seconds:
         cmd.extend(["--test-duration", str(config.fuzz_duration_seconds)])
+
+    # Execute via existing run_command utility (keeps logs, timeouts, etc.)
     result = run_command(
         cmd,
         timeout=config.timeout_seconds,
@@ -31,18 +55,23 @@ def run_echidna(
         log_dir=log_dir,
         max_runtime=config.max_runtime_seconds or config.fuzz_duration_seconds,
     )
-    result.tool_version = detect_tool_version(settings.echidna_path)
+
+    # Dockers don’t provide versions — so we mark it explicitly
+    result.tool_version = "docker:trailofbits/echidna"
+
     findings: List[NormalizedFinding] = []
     if result.success and result.output:
         try:
             data = json.loads(result.output)
+
+            # Standard Echidna JSON structure: {"errors": [ ... ]}
             for issue in data.get("errors", []):
                 findings.append(
                     NormalizedFinding(
                         tool="echidna",
-                        title=issue.get("test", "echidna failure"),
+                        title=issue.get("test", "Echidna issue"),
                         description=issue.get("message", ""),
-                        severity="HIGH",
+                        severity="HIGH",  # Echidna does not label severity
                         category="property-violation",
                         file_path=issue.get("contract"),
                         line_number=str(issue.get("line", "?")),
@@ -53,7 +82,9 @@ def run_echidna(
                         assertions=issue.get("property"),
                     )
                 )
+
         except json.JSONDecodeError as exc:
             result.parsing_error = str(exc)
             result.failure_reason = result.failure_reason or "parse-error"
+
     return result, findings
